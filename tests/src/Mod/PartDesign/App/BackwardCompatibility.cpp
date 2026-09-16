@@ -1,19 +1,152 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include <gtest/gtest.h>
-#include <BRep_Tool.hxx>
-#include <TopoDS.hxx>
+#include <BRepGProp.hxx>
+#include <GProp_GProps.hxx>
 #include <TopExp_Explorer.hxx>
 #include "src/App/InitApplication.h"
+
+#include <algorithm>
+#include <array>
+#include <cstdio>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include <App/Application.h>
 #include <App/Document.h>
 #include <App/Expression.h>
 #include <App/ObjectIdentifier.h>
+#include <Base/Console.h>
+#include <Mod/PartDesign/App/Body.h>
 #include <Mod/PartDesign/App/FeatureChamfer.h>
 #include <Mod/PartDesign/App/FeaturePad.h>
+#include <Mod/PartDesign/App/FeatureRevolution.h>
 
 // NOLINTBEGIN(readability-magic-numbers,cppcoreguidelines-avoid-magic-numbers)
+
+namespace
+{
+
+class MigrationLogger final: public Base::ILogger
+{
+public:
+    void sendLog(
+        const std::string&,
+        const std::string& message,
+        Base::LogStyle level,
+        Base::IntendedRecipient,
+        Base::ContentType
+    ) override
+    {
+        if (level == Base::LogStyle::Warning) {
+            warnings.push_back(message);
+        }
+    }
+
+    const char* name() override
+    {
+        return "MigrationLogger";
+    }
+
+    std::vector<std::string> warnings;
+};
+
+class ScopedConsoleObserver
+{
+public:
+    explicit ScopedConsoleObserver(Base::ILogger& logger)
+        : logger(logger)
+    {
+        Base::Console().attachObserver(&logger);
+    }
+
+    ~ScopedConsoleObserver()
+    {
+        Base::Console().detachObserver(&logger);
+    }
+
+private:
+    Base::ILogger& logger;
+};
+
+struct GeometryFingerprint
+{
+    double volume;
+    Base::BoundBox3d bounds;
+    std::array<int, 4> topology;
+};
+
+GeometryFingerprint geometryFingerprint(const PartDesign::Chamfer& chamfer)
+{
+    const auto& shape = chamfer.Shape.getValue();
+    GProp_GProps properties;
+    BRepGProp::VolumeProperties(shape.getShape(), properties);
+
+    std::array<int, 4> counts {};
+    const std::array<TopAbs_ShapeEnum, 4> types {
+        TopAbs_SOLID,
+        TopAbs_FACE,
+        TopAbs_EDGE,
+        TopAbs_VERTEX,
+    };
+    for (std::size_t i = 0; i < types.size(); ++i) {
+        for (TopExp_Explorer explorer(shape.getShape(), types[i]); explorer.More(); explorer.Next()) {
+            ++counts[i];
+        }
+    }
+
+    return {properties.Mass(), shape.getBoundBox(), counts};
+}
+
+void expectSameGeometry(const GeometryFingerprint& expected, const PartDesign::Chamfer& chamfer)
+{
+    const auto actual = geometryFingerprint(chamfer);
+    EXPECT_NEAR(actual.volume, expected.volume, 1e-7);
+    EXPECT_EQ(actual.topology, expected.topology);
+    EXPECT_NEAR(actual.bounds.MinX, expected.bounds.MinX, 1e-7);
+    EXPECT_NEAR(actual.bounds.MinY, expected.bounds.MinY, 1e-7);
+    EXPECT_NEAR(actual.bounds.MinZ, expected.bounds.MinZ, 1e-7);
+    EXPECT_NEAR(actual.bounds.MaxX, expected.bounds.MaxX, 1e-7);
+    EXPECT_NEAR(actual.bounds.MaxY, expected.bounds.MaxY, 1e-7);
+    EXPECT_NEAR(actual.bounds.MaxZ, expected.bounds.MaxZ, 1e-7);
+}
+
+PartDesign::Chamfer* expectParametricHistory(App::Document& document)
+{
+    EXPECT_EQ(document.getObjects().size(), 13);
+
+    auto* body = dynamic_cast<PartDesign::Body*>(document.getObject("Body"));
+    auto* pad = dynamic_cast<PartDesign::Pad*>(document.getObject("Pad"));
+    auto* revolution =
+        dynamic_cast<PartDesign::Revolution*>(document.getObject("Revolution"));
+    auto* chamfer = dynamic_cast<PartDesign::Chamfer*>(document.getObject("Chamfer"));
+    EXPECT_NE(body, nullptr);
+    EXPECT_NE(pad, nullptr);
+    EXPECT_NE(revolution, nullptr);
+    EXPECT_NE(chamfer, nullptr);
+    if (!body || !pad || !revolution || !chamfer) {
+        return nullptr;
+    }
+
+    std::vector<std::string> history;
+    for (const auto* object : body->getFullModel()) {
+        history.emplace_back(object->getNameInDocument());
+    }
+    EXPECT_EQ(
+        history,
+        (std::vector<std::string> {"Sketch", "Pad", "Sketch001", "Revolution", "Chamfer"})
+    );
+    EXPECT_EQ(body->Tip.getValue(), chamfer);
+    EXPECT_EQ(pad->Profile.getValue(), document.getObject("Sketch"));
+    EXPECT_EQ(revolution->Profile.getValue(), document.getObject("Sketch001"));
+    EXPECT_EQ(chamfer->Base.getValue(), revolution);
+    EXPECT_EQ(chamfer->Base.getSubValues().size(), 4);
+
+    return chamfer;
+}
+
+}  // namespace
 
 class BackwardCompatibilityTest: public ::testing::Test
 {
@@ -30,7 +163,12 @@ protected:
 
     void TearDown() override
     {
-        App::GetApplication().closeDocument(_doc->getName());
+        if (_doc) {
+            App::GetApplication().closeDocument(_doc->getName());
+        }
+        if (!_temporaryFile.empty()) {
+            std::remove(_temporaryFile.c_str());
+        }
     }
 
     const App::Document* getDocument() const
@@ -48,85 +186,61 @@ protected:
         return _testPath;
     }
 
+    const std::string& setTemporaryFile(std::string path)
+    {
+        _temporaryFile = std::move(path);
+        return _temporaryFile;
+    }
+
 private:
     App::Document* _doc = nullptr;
     std::string _testPath;
+    std::string _temporaryFile;
 };
 
-TEST_F(BackwardCompatibilityTest, TestOpenV021Model)
+TEST_F(BackwardCompatibilityTest, TestV021MigrationContractLifecycle)
 {
-
-    // arrange
-
-    auto doc = App::GetApplication().openDocument(
+    MigrationLogger logger;
+    ScopedConsoleObserver observer(logger);
+    auto* doc = App::GetApplication().openDocument(
         std::string(getTestPath() + "ModelFromV021.FCStd").c_str()
     );
     setDocument(doc);
 
-    auto chamfer = dynamic_cast<PartDesign::Chamfer*>(doc->getObject("Chamfer"));
-    auto chamferEdgesNames = chamfer->Base.getSubValues();
+    ASSERT_NE(doc, nullptr);
+    EXPECT_EQ(std::string(doc->getProgramVersion()).find("0.21"), 0);
+    auto* chamfer = expectParametricHistory(*doc);
+    ASSERT_NE(chamfer, nullptr);
+    const auto originalGeometry = geometryFingerprint(*chamfer);
+    EXPECT_GT(originalGeometry.volume, 0.0);
+    EXPECT_GT(originalGeometry.topology[1], 0);
 
-    std::vector<TopoDS_Shape> chamferOriginalEdges {};
-    for (const auto& chamferEdgesName : chamferEdgesNames) {
-        chamferOriginalEdges.push_back(
-            chamfer->getBaseTopoShape().getSubTopoShape(chamferEdgesName.c_str()).getShape()
-        );
-    }
-
-    // act
+    EXPECT_TRUE(std::ranges::any_of(logger.warnings, [](const std::string& warning) {
+        return warning.find("being adjusted to maintain the same geometry") != std::string::npos
+            && warning.find("FreeCAD 0.21.x") != std::string::npos;
+    }));
 
     doc->recompute();
-    chamfer = dynamic_cast<PartDesign::Chamfer*>(doc->getObject("Chamfer"));
-    chamferEdgesNames = chamfer->Base.getSubValues();
+    ASSERT_FALSE(chamfer->isError());
+    expectSameGeometry(originalGeometry, *chamfer);
+    ASSERT_NE(expectParametricHistory(*doc), nullptr);
 
-    // assert
+    const std::string originalPath = doc->getFileName();
+    const auto& copyPath =
+        setTemporaryFile(App::Application::getTempFileName() + std::string(".FCStd"));
+    ASSERT_TRUE(doc->saveCopy(copyPath.c_str()));
+    EXPECT_EQ(std::string(doc->getFileName()), originalPath);
 
-    auto checkSameVertexes = [](const TopoDS_Shape& e1, const TopoDS_Shape& e2) {
-        TopExp_Explorer e1Vertexes(e1, TopAbs_VERTEX);
-        TopExp_Explorer e2Vertexes(e2, TopAbs_VERTEX);
-
-        bool sameCoords {true};
-        bool moreToCheck {e1Vertexes.More() && e2Vertexes.More()};
-
-        // If one of the vertexes doesn't have the same coordinates of the other one then it'll be
-        // useless to continue
-        while (moreToCheck && sameCoords) {
-            auto p1 = BRep_Tool::Pnt(TopoDS::Vertex(e1Vertexes.Current()));
-            auto p2 = BRep_Tool::Pnt(TopoDS::Vertex(e2Vertexes.Current()));
-
-            sameCoords &= (p1.X() == p2.X() && p1.Y() == p2.Y() && p1.Z() == p2.Z());
-            e1Vertexes.Next();
-            e2Vertexes.Next();
-
-            moreToCheck = (e1Vertexes.More() && e2Vertexes.More());
-
-            // Extra check: both edges should have the same number of vertexes (e*Vertexes.More()
-            // should be true or false at the same time for both the edges).
-            // If this doesn't happen then one of the edges won't have enough vertexes to perform a
-            // full coordinates comparison.
-            // This shouldn't happen, so it's here just in case
-            sameCoords &= (e1Vertexes.More() == e2Vertexes.More());
-        }
-
-        return sameCoords;
-    };
-
-    EXPECT_TRUE(checkSameVertexes(
-        chamfer->getBaseTopoShape().getSubTopoShape(chamferEdgesNames[0].c_str()).getShape(),
-        chamferOriginalEdges[0]
-    ));
-    EXPECT_TRUE(checkSameVertexes(
-        chamfer->getBaseTopoShape().getSubTopoShape(chamferEdgesNames[1].c_str()).getShape(),
-        chamferOriginalEdges[1]
-    ));
-    EXPECT_TRUE(checkSameVertexes(
-        chamfer->getBaseTopoShape().getSubTopoShape(chamferEdgesNames[2].c_str()).getShape(),
-        chamferOriginalEdges[2]
-    ));
-    EXPECT_TRUE(checkSameVertexes(
-        chamfer->getBaseTopoShape().getSubTopoShape(chamferEdgesNames[3].c_str()).getShape(),
-        chamferOriginalEdges[3]
-    ));
+    App::GetApplication().closeDocument(doc->getName());
+    doc = App::GetApplication().openDocument(copyPath.c_str());
+    setDocument(doc);
+    ASSERT_NE(doc, nullptr);
+    chamfer = expectParametricHistory(*doc);
+    ASSERT_NE(chamfer, nullptr);
+    expectSameGeometry(originalGeometry, *chamfer);
+    doc->recompute();
+    ASSERT_FALSE(chamfer->isError());
+    expectSameGeometry(originalGeometry, *chamfer);
 }
 
 TEST_F(BackwardCompatibilityTest, TestTwoLengthsPadWithExpression)
