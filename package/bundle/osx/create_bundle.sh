@@ -152,17 +152,29 @@ else
     fi
     codesign --force --sign - FreeCAD.app
 
+    # ponytail: verify and smoke before dmgbuild — dmgbuild consumes FreeCAD.app on CI runners
+    echo "Verifying signed application bundle..."
+    codesign --verify --deep --strict FreeCAD.app
+
+    echo "Running FreeCAD bundle launcher smoke test..."
+    if ! FreeCAD.app/Contents/MacOS/FreeCAD --safe-mode --version; then
+        echo "FreeCAD bundle launcher smoke test failed; the signed application cannot start."
+        exit 1
+    fi
+
     # create the dmg
     dmgbuild -s dmg_settings.py "FreeCAD" "${version_name}.dmg"
 fi
 
-echo "Verifying signed application bundle..."
-codesign --verify --deep --strict FreeCAD.app
+if [[ "${MACOS_SIGN_RELEASE}" == "true" ]]; then
+    echo "Verifying signed application bundle..."
+    codesign --verify --deep --strict FreeCAD.app
 
-echo "Running FreeCAD bundle launcher smoke test..."
-if ! FreeCAD.app/Contents/MacOS/FreeCAD --safe-mode --version; then
-    echo "FreeCAD bundle launcher smoke test failed; the signed application cannot start."
-    exit 1
+    echo "Running FreeCAD bundle launcher smoke test..."
+    if ! FreeCAD.app/Contents/MacOS/FreeCAD --safe-mode --version; then
+        echo "FreeCAD bundle launcher smoke test failed; the signed application cannot start."
+        exit 1
+    fi
 fi
 
 echo "Verifying disk image..."
