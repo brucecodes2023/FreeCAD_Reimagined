@@ -23,5 +23,24 @@ jobs:
 
       - name: 'Checkout Repository'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: 'Dependency graph available'
+        id: dependency_graph
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # ponytail: action has no skip-when-unsupported input; probe the same compare API
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          err=$(mktemp)
+          if gh api "repos/${GITHUB_REPOSITORY}/dependency-graph/compare/${base}...${head}" 2>"$err"; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          elif grep -q 'HTTP 403' "$err"; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Dependency graph is disabled; skipping dependency review."
+          else
+            cat "$err" >&2
+            exit 1
+          fi
       - name: 'Dependency Review'
+        if: steps.dependency_graph.outputs.available == 'true'
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v4
