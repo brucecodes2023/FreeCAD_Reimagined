@@ -2379,7 +2379,110 @@ class TestTopologicalNamingProblem(unittest.TestCase):
 
     def testPD_TNPSketchPadSketchTrim(self):
         """Prove that a sketch attached to a padded sketch shape does not have a problem when the initial sketch has geometry trimmed"""
-        pass  # TODO
+        doc = App.ActiveDocument
+        App.activeDocument().addObject("PartDesign::Body", "Body")
+        doc.Body.newObject("Sketcher::SketchObject", "Sketch")
+        doc.Sketch.AttachmentSupport = (doc.XY_Plane, [""])
+        doc.Sketch.MapMode = "FlatFace"
+        geoList = []
+        geoList.append(Part.LineSegment(App.Vector(0, 0, 0), App.Vector(40, 0, 0)))
+        geoList.append(Part.LineSegment(App.Vector(40, 0, 0), App.Vector(40, 20, 0)))
+        geoList.append(Part.LineSegment(App.Vector(40, 20, 0), App.Vector(0, 20, 0)))
+        geoList.append(Part.LineSegment(App.Vector(0, 20, 0), App.Vector(0, 0, 0)))
+        doc.Sketch.addGeometry(geoList, False)
+        constraintList = []
+        constraintList.append(Sketcher.Constraint("Coincident", 0, 2, 1, 1))
+        constraintList.append(Sketcher.Constraint("Coincident", 1, 2, 2, 1))
+        constraintList.append(Sketcher.Constraint("Coincident", 2, 2, 3, 1))
+        constraintList.append(Sketcher.Constraint("Coincident", 3, 2, 0, 1))
+        constraintList.append(Sketcher.Constraint("Horizontal", 0))
+        constraintList.append(Sketcher.Constraint("Horizontal", 2))
+        constraintList.append(Sketcher.Constraint("Vertical", 1))
+        constraintList.append(Sketcher.Constraint("Vertical", 3))
+        doc.Sketch.addConstraint(constraintList)
+        doc.recompute()
+        doc.Body.newObject("PartDesign::Pad", "Pad")
+        doc.Pad.Profile = (
+            doc.Sketch,
+            [
+                "",
+            ],
+        )
+        doc.Pad.Length = 10
+        doc.Pad.ReferenceAxis = (doc.Sketch, ["N_Axis"])
+        doc.Sketch.Visibility = False
+        doc.Pad.Length = 10.000000
+        doc.Pad.TaperAngle = 0.000000
+        doc.Pad.UseCustomVector = 0
+        doc.Pad.Direction = (0, 0, 1)
+        doc.Pad.ReferenceAxis = (doc.Sketch, ["N_Axis"])
+        doc.Pad.AlongSketchNormal = 1
+        doc.Pad.Type = 0
+        doc.Pad.UpToFace = None
+        doc.Pad.Reversed = 0
+        doc.Pad.SideType = "One side"
+        doc.Pad.Offset = 0
+        doc.recompute()
+        doc.Sketch.Visibility = False
+        doc.Body.newObject("Sketcher::SketchObject", "Sketch001")
+        doc.Sketch001.AttachmentSupport = (
+            doc.Pad,
+            [
+                "Face6",
+            ],
+        )
+        doc.Sketch001.MapMode = "FlatFace"
+        geoList = []
+        geoList.append(Part.LineSegment(App.Vector(5, 5, 0), App.Vector(5, 10, 0)))
+        geoList.append(Part.LineSegment(App.Vector(5, 10, 0), App.Vector(25, 10, 0)))
+        geoList.append(Part.LineSegment(App.Vector(25, 10, 0), App.Vector(25, 5, 0)))
+        geoList.append(Part.LineSegment(App.Vector(25, 5, 0), App.Vector(5, 5, 0)))
+        doc.Sketch001.addGeometry(geoList, False)
+        del geoList
+        constraintList = []
+        constraintList.append(Sketcher.Constraint("Coincident", 0, 2, 1, 1))
+        constraintList.append(Sketcher.Constraint("Coincident", 1, 2, 2, 1))
+        constraintList.append(Sketcher.Constraint("Coincident", 2, 2, 3, 1))
+        constraintList.append(Sketcher.Constraint("Coincident", 3, 2, 0, 1))
+        constraintList.append(Sketcher.Constraint("Vertical", 0))
+        constraintList.append(Sketcher.Constraint("Vertical", 2))
+        constraintList.append(Sketcher.Constraint("Horizontal", 1))
+        constraintList.append(Sketcher.Constraint("Horizontal", 3))
+        doc.Sketch001.addConstraint(constraintList)
+        doc.recompute()
+        doc.Body.newObject("PartDesign::Pad", "Pad001")
+        doc.Pad001.Profile = (
+            doc.Sketch001,
+            [
+                "",
+            ],
+        )
+        doc.Pad001.Length = 10
+        doc.Pad001.ReferenceAxis = (doc.Sketch001, ["N_Axis"])
+        doc.Sketch001.Visibility = False
+        doc.Pad001.Length = 10.000000
+        doc.Pad001.TaperAngle = 0.000000
+        doc.Pad001.UseCustomVector = 0
+        doc.Pad001.Direction = (0, 0, 1)
+        doc.Pad001.ReferenceAxis = (doc.Sketch001, ["N_Axis"])
+        doc.Pad001.AlongSketchNormal = 1
+        doc.Pad001.Type = 0
+        doc.Pad001.UpToFace = None
+        doc.Pad001.Reversed = 0
+        doc.Pad001.SideType = "One side"
+        doc.Pad001.Offset = 0
+        doc.recompute()
+        doc.Pad.Visibility = False
+        doc.Sketch001.Visibility = False
+
+        doc.Sketch.trim(0, App.Vector(20, 0, 0))
+        doc.recompute()
+        self.assertAlmostEqual(doc.Pad.Shape.Volume, 8000)
+        self.assertTrue(doc.Sketch001.isValid())
+        self.assertTrue(doc.Sketch001.AttachmentOffset.Matrix == App.Matrix())
+        matrix1 = App.Matrix()
+        matrix1.A34 = 10  # Z offset by 10.
+        self.assertTrue(doc.Sketch001.Placement.Matrix == matrix1)
 
     def testPD_TNPSketchPadSketchExternal(self):
         """Prove that a sketch attached to a padded sketch shape does not have a problem when the initial sketch has external geometry changed"""
