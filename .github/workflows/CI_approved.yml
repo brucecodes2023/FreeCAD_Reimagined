@@ -22,7 +22,7 @@
 # *                                                                         *
 # ***************************************************************************
 
-# This workflow runs label-gated CI jobs (macOS and Windows builds).
+# This workflow runs supplemental label-gated Pixi and Windows builds.
 # It lives in a separate workflow from CI_primary.yml so that adding a
 # label does not cancel the in-progress Linux build and lint run.
 #
@@ -160,6 +160,7 @@ jobs:
     uses: ./.github/workflows/sub_buildPixi.yml
     with:
       artifactBasename: Pixi-${{ github.run_id }}
+      runnerMatrix: '[{"os":"windows-2022"},{"os":"ubuntu-latest"}]'
       skipBuild: ${{ needs.Gate.outputs.should-run != 'true' }}
 
   Windows:

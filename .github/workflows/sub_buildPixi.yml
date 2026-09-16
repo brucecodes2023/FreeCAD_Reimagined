@@ -48,9 +48,17 @@ on:
         default: false
         type: boolean
         required: false
+      runnerMatrix:
+        default: '[{"os":"windows-2022"},{"os":"ubuntu-latest"},{"os":"macos-latest"}]'
+        type: string
+        required: false
+      buildMacOSBundle:
+        default: false
+        type: boolean
+        required: false
     outputs:
       reportFile:
-        value: ${{ jobs.Build.outputs.reportFile }}
+        value: ${{ jobs.build_with_pixi.outputs.reportFile }}
 
 permissions:
   contents: read
@@ -69,10 +77,11 @@ jobs:
       CCACHE_NOHASHDIR: true
       CCACHE_NOINODECACHE: true
       CCACHE_SLOPPINESS: "include_file_ctime,include_file_mtime,pch_defines,time_macros"
-      builddir: ${{ github.workspace }}/build/release/
+      builddir: ${{ inputs.buildMacOSBundle && format('{0}/build/bundle-release/', github.workspace) || format('{0}/build/release/', github.workspace) }}
       cacheKey: pixi-${{ matrix.os }}
       config: release
       logdir: ${{ github.workspace }}/logs/
+      MACOS_DEPLOYMENT_TARGET: ${{ matrix.deploymentTarget }}
       reportdir: ${{ github.workspace }}/report/
       reportfilename: ${{ inputs.artifactBasename }}-${{ matrix.os }}-report.md
       shellCmd: "pixi run bash -l {0}"
@@ -83,7 +92,7 @@ jobs:
       max-parallel: 6
       fail-fast: false
       matrix:
-        os: [windows-2022, ubuntu-latest, macos-latest]
+        include: ${{ fromJSON(inputs.runnerMatrix) }}
 
     steps:
     - name: Harden the runner (Audit all outbound calls)
@@ -157,14 +166,20 @@ jobs:
         pixi run ccache -p
 
     - name: CMake Configure
-      if: "!inputs.skipBuild"
+      if: "!inputs.skipBuild && !inputs.buildMacOSBundle"
       run: |
         pixi run configure-${{ env.config }}
 
     - name: CMake Build
-      if: "!inputs.skipBuild"
+      if: "!inputs.skipBuild && !inputs.buildMacOSBundle"
       run: |
         pixi run build-${{ env.config }}
+
+    - name: Build macOS bundle payload
+      if: runner.os == 'macOS' && inputs.buildMacOSBundle && !inputs.skipBuild
+      env:
+        FREECAD_INSTALL_3DCONNEXION: "false"
+      run: pixi run --locked "bash package/bundle/build.sh"
 
     - name: Print ccache statistics after Build
       if: "!inputs.skipBuild"
@@ -229,12 +244,12 @@ jobs:
         shellCmd: ${{ env.shellCmd }}
 
     - name: CMake Install
-      if: "!inputs.skipBuild"
+      if: "!inputs.skipBuild && !inputs.buildMacOSBundle"
       run: |
         pixi run install-${{ env.config }}
 
     - name: FreeCAD CLI tests on install
-      if: runner.os != 'Windows' && !inputs.skipBuild
+      if: runner.os != 'Windows' && !inputs.skipBuild && !inputs.buildMacOSBundle
       timeout-minutes: 10
       uses: ./.github/workflows/actions/runPythonTests
       with:
@@ -243,6 +258,16 @@ jobs:
         logFile: ${{ env.logdir }}TestCLIInstall.log
         reportFile: ${{env.reportdir}}${{ env.reportfilename }}
         shellCmd: ${{ env.shellCmd }}
+
+    - name: Create and smoke-test macOS bundle
+      if: runner.os == 'macOS' && inputs.buildMacOSBundle && !inputs.skipBuild
+      env:
+        BUILD_TAG: ci-${{ github.sha }}
+        MACOS_SIGN_RELEASE: "false"
+        UPLOAD_RELEASE: "false"
+      run: |
+        cd package/bundle
+        pixi run --locked bash -c "cd osx && bash create_bundle.sh"
 
     - name: FreeCAD GUI tests on install
       # if: runner.os == 'Linux' && !inputs.skipBuild

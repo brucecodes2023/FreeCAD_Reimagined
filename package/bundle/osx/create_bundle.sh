@@ -156,6 +156,18 @@ else
     dmgbuild -s dmg_settings.py "FreeCAD" "${version_name}.dmg"
 fi
 
+echo "Verifying signed application bundle..."
+codesign --verify --deep --strict FreeCAD.app
+
+echo "Running FreeCAD bundle launcher smoke test..."
+if ! FreeCAD.app/Contents/MacOS/FreeCAD --safe-mode --version; then
+    echo "FreeCAD bundle launcher smoke test failed; the signed application cannot start."
+    exit 1
+fi
+
+echo "Verifying disk image..."
+hdiutil verify "${version_name}.dmg"
+
 # create hash
 sha256sum ${version_name}.dmg > ${version_name}.dmg-SHA256.txt
 
