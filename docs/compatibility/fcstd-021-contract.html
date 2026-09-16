@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FCStd 0.21+ compatibility contract</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; line-height: 1.55; }
+    body { max-width: 72rem; margin: auto; padding: 2rem; }
+    h1, h2 { line-height: 1.2; }
+    code { background: color-mix(in srgb, currentColor 10%, transparent); padding: .1rem .3rem; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid color-mix(in srgb, currentColor 35%, transparent); padding: .5rem; text-align: left; }
+    th { background: color-mix(in srgb, currentColor 8%, transparent); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>FCStd 0.21+ compatibility contract</h1>
+    <p>
+      FreeCAD Extreme accepts editable FCStd documents written by FreeCAD 0.21 or later when every
+      persisted object type is supplied by the application or an installed extension. Compatibility
+      uses FreeCAD’s existing ZIP/XML persistence and object restoration hooks; it does not introduce
+      another file format or serialization path.
+    </p>
+
+    <h2>Initial contract</h2>
+    <ol>
+      <li>The document opens without a partial restore or missing expected objects.</li>
+      <li>Feature history, links, and the body tip remain intact.</li>
+      <li>A full recompute completes without object errors and preserves the reference geometry.</li>
+      <li>
+        Any restoration hook that changes persisted parameters to retain current behavior emits an
+        explicit diagnostic naming the adjustment and compatibility consequence.
+      </li>
+      <li>
+        <code>saveCopy()</code> writes the migrated current-format document to a distinct path without
+        changing the source document path.
+      </li>
+      <li>The saved copy reopens, recomputes, and retains the same history and geometry.</li>
+    </ol>
+    <p>
+      Geometry equality in the initial gate means equal solid/face/edge/vertex counts, volume, and
+      axis-aligned bounds within the test tolerance. This catches loss or behavioral drift without
+      requiring byte-identical OCCT output.
+    </p>
+
+    <h2>Golden corpus</h2>
+    <table>
+      <thead>
+        <tr><th>Writer</th><th>File</th><th>Coverage</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>FreeCAD 0.21R33771</td>
+          <td><code>tests/src/Mod/PartDesign/App/TestModels/ModelFromV021.FCStd</code></td>
+          <td>Sketch → pad → sketch → revolution → chamfer; origin-point migration and topology</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      <code>BackwardCompatibilityTest.TestV021MigrationContractLifecycle</code> runs the complete
+      open, recompute, save-copy, reopen sequence against this boundary file. Add another golden file
+      only when a distinct release or persistence hook exposes behavior this file cannot represent.
+    </p>
+
+    <h2>Out of scope</h2>
+    <ul>
+      <li>Opening newly saved files in older FreeCAD releases.</li>
+      <li>Documents whose required workbench, add-on, font, or external link is unavailable.</li>
+      <li>Byte-for-byte archive or BREP identity, GUI layout, thumbnails, and rendering preferences.</li>
+      <li>Silent repair: partial restoration remains a failure of this contract.</li>
+    </ul>
+  </main>
+</body>
+</html>
