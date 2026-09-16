@@ -237,9 +237,9 @@ jobs:
 
     - name: C++ tests
       timeout-minutes: 10
-      if: runner.os != 'Windows' && !inputs.skipBuild
-      env:
-        DYLD_INSERT_LIBRARIES: ${{ inputs.buildMacOSBundle && format('{0}/.pixi/envs/default/lib/libpython3.11.dylib', github.workspace) || '' }}
+      # ponytail: bundle builds use BUILD_DYNAMIC_LINK_PYTHON=OFF; gtests need libpython
+      # at runtime but DYLD_INSERT_LIBRARIES breaks arm64e runners — CLI + bundle smokes cover this path.
+      if: runner.os != 'Windows' && !inputs.skipBuild && !(runner.os == 'macOS' && inputs.buildMacOSBundle)
       uses: ./.github/workflows/actions/runCPPTests/runAllTests
       with:
         reportdir: ${{ env.reportdir }}

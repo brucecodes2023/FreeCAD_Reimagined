@@ -60,7 +60,8 @@ runs:
       run: |
         mkdir -p "$(dirname "${{ inputs.logFile }}")"
         touch "${{ inputs.logFile }}"
-        sed -ne "/^\(FAILED\|ERROR\):/,/^[[:blank:]]*$/bF; /^Traceback/,/^[^[:blank:]]/{/^Traceback/bT; /^[^[:blank:]]/G; bT}; b; :T w ${{ inputs.logFile }}_tracebacks" -e "b; :F w ${{ inputs.logFile }}_failedtests" ${{ inputs.logFile }}
+        awk '/^(FAILED|ERROR):/{show=1} show{print; if ($0 ~ /^[[:space:]]*$/) show=0}' "${{ inputs.logFile }}" > "${{ inputs.logFile }}_failedtests"
+        awk '/^Traceback/{show=1; print; next} show{if ($0 ~ /^[[:space:]]/ || $0 == "") print; else show=0}' "${{ inputs.logFile }}" > "${{ inputs.logFile }}_tracebacks"
         icon=""
         if [ $( cat ${{ inputs.logFile }}_tracebacks | wc -l ) -gt 0 ]
         then
