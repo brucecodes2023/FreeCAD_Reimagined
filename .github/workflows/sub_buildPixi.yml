@@ -238,6 +238,8 @@ jobs:
     - name: C++ tests
       timeout-minutes: 10
       if: runner.os != 'Windows' && !inputs.skipBuild
+      env:
+        DYLD_INSERT_LIBRARIES: ${{ inputs.buildMacOSBundle && format('{0}/.pixi/envs/default/lib/libpython3.11.dylib', github.workspace) || '' }}
       uses: ./.github/workflows/actions/runCPPTests/runAllTests
       with:
         reportdir: ${{ env.reportdir }}
