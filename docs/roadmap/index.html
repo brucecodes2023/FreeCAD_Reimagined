@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="FreeCAD Extreme year-one roadmap, architecture, compatibility policy, benchmark gates, and decision record.">
+  <title>FreeCAD Extreme — Year One Technical Brief</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --ink: #14202b;
+      --muted: #526473;
+      --paper: #f5f7f8;
+      --surface: #ffffff;
+      --line: #cbd5dc;
+      --brand: #165d7c;
+      --brand-strong: #0e4259;
+      --accent: #c25b22;
+      --good: #236b43;
+      --warn: #8a5500;
+      --radius: 0.6rem;
+      --shadow: 0 0.45rem 1.4rem rgb(19 42 55 / 9%);
+      --measure: 76rem;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font: 1rem/1.62 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    a {
+      color: var(--brand-strong);
+      text-underline-offset: 0.18em;
+    }
+
+    a:hover {
+      text-decoration-thickness: 0.14em;
+    }
+
+    :focus-visible {
+      outline: 0.2rem solid var(--accent);
+      outline-offset: 0.2rem;
+    }
+
+    .skip-link {
+      position: fixed;
+      z-index: 10;
+      top: 0.5rem;
+      left: 0.5rem;
+      padding: 0.6rem 0.9rem;
+      color: white;
+      background: var(--ink);
+      border-radius: 0.35rem;
+      transform: translateY(-200%);
+    }
+
+    .skip-link:focus {
+      transform: none;
+    }
+
+    header,
+    main,
+    footer {
+      width: min(100% - 2rem, var(--measure));
+      margin-inline: auto;
+    }
+
+    .hero {
+      padding: clamp(2.6rem, 7vw, 6.5rem) 0 2.2rem;
+    }
+
+    .eyebrow {
+      margin: 0 0 0.6rem;
+      color: var(--brand);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.15;
+      text-wrap: balance;
+    }
+
+    h1 {
+      max-width: 16ch;
+      margin: 0;
+      font-size: clamp(2.5rem, 8vw, 5.4rem);
+      letter-spacing: -0.055em;
+    }
+
+    h2 {
+      margin: 0 0 1rem;
+      font-size: clamp(1.8rem, 4vw, 2.7rem);
+      letter-spacing: -0.03em;
+    }
+
+    h3 {
+      margin: 0 0 0.45rem;
+      font-size: 1.15rem;
+    }
+
+    p,
+    li {
+      max-width: 72ch;
+    }
+
+    .lede {
+      max-width: 56ch;
+      margin: 1.2rem 0 0;
+      color: var(--muted);
+      font-size: clamp(1.12rem, 2vw, 1.35rem);
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem 1.2rem;
+      margin: 1.6rem 0 0;
+      padding: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      list-style: none;
+    }
+
+    nav {
+      position: sticky;
+      z-index: 2;
+      top: 0;
+      margin-inline: calc(50% - 50vw);
+      padding: 0.75rem max(1rem, calc((100vw - var(--measure)) / 2));
+      overflow-x: auto;
+      background: color-mix(in srgb, var(--paper) 92%, transparent);
+      border-block: 1px solid var(--line);
+      backdrop-filter: blur(0.7rem);
+    }
+
+    nav ul {
+      display: flex;
+      width: max-content;
+      margin: 0;
+      padding: 0;
+      gap: 1rem;
+      list-style: none;
+    }
+
+    nav a {
+      color: var(--ink);
+      font-size: 0.88rem;
+      font-weight: 700;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    main {
+      padding-block: 1rem 5rem;
+    }
+
+    section {
+      padding-block: clamp(2.8rem, 6vw, 5.3rem);
+      border-bottom: 1px solid var(--line);
+      scroll-margin-top: 4rem;
+    }
+
+    .section-intro {
+      margin: -0.25rem 0 1.8rem;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+
+    .callout {
+      margin-top: 2rem;
+      padding: 1.1rem 1.25rem;
+      background: color-mix(in srgb, var(--brand) 8%, var(--surface));
+      border: 1px solid color-mix(in srgb, var(--brand) 35%, var(--line));
+      border-left: 0.35rem solid var(--brand);
+      border-radius: var(--radius);
+    }
+
+    .callout > :first-child {
+      margin-top: 0;
+    }
+
+    .callout > :last-child {
+      margin-bottom: 0;
+    }
+
+    .principles,
+    .phase-grid,
+    .decision-grid,
+    .gate-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+      gap: 1rem;
+      padding: 0;
+      list-style: none;
+    }
+
+    .card {
+      padding: 1.15rem;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .card p,
+    .card ul {
+      margin-bottom: 0;
+    }
+
+    .card ul {
+      padding-left: 1.15rem;
+    }
+
+    .number {
+      display: inline-grid;
+      width: 2rem;
+      height: 2rem;
+      margin-bottom: 0.75rem;
+      place-items: center;
+      color: white;
+      background: var(--brand);
+      border-radius: 50%;
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .phase {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .phase::before {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 0.32rem;
+      background: var(--accent);
+      content: "";
+    }
+
+    .phase-label {
+      color: var(--accent);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .phase footer {
+      width: auto;
+      margin-top: 1rem;
+      padding-top: 0.75rem;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      font-size: 0.88rem;
+    }
+
+    figure {
+      margin: 2rem 0;
+    }
+
+    figcaption {
+      margin-top: 0.8rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .architecture {
+      display: grid;
+      gap: 0.55rem;
+      padding: clamp(1rem, 3vw, 1.7rem);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .architecture-row {
+      display: grid;
+      grid-template-columns: 8rem 1fr;
+      align-items: stretch;
+      gap: 0.6rem;
+    }
+
+    .architecture-label,
+    .architecture-items > span {
+      display: grid;
+      min-height: 3rem;
+      padding: 0.65rem;
+      place-items: center;
+      border-radius: 0.35rem;
+      text-align: center;
+    }
+
+    .architecture-label {
+      color: var(--muted);
+      background: var(--paper);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .architecture-items {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+      gap: 0.45rem;
+    }
+
+    .architecture-items > span {
+      background: color-mix(in srgb, var(--brand) 10%, var(--surface));
+      border: 1px solid color-mix(in srgb, var(--brand) 30%, var(--line));
+      font-weight: 700;
+    }
+
+    .architecture-row:nth-child(4) .architecture-items > span {
+      background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+      border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
+    }
+
+    .workflow {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      margin: 1.5rem 0;
+      padding: 0;
+      gap: 1.7rem;
+      counter-reset: workflow;
+      list-style: none;
+    }
+
+    .workflow li {
+      position: relative;
+      display: grid;
+      min-height: 5rem;
+      padding: 0.8rem;
+      place-items: center;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      counter-increment: workflow;
+      font-weight: 750;
+      text-align: center;
+    }
+
+    .workflow li::before {
+      position: absolute;
+      top: -0.65rem;
+      left: -0.45rem;
+      display: grid;
+      width: 1.55rem;
+      height: 1.55rem;
+      place-items: center;
+      color: white;
+      background: var(--brand);
+      border-radius: 50%;
+      content: counter(workflow);
+      font-size: 0.72rem;
+    }
+
+    .workflow li:not(:last-child)::after {
+      position: absolute;
+      top: 50%;
+      left: calc(100% + 0.25rem);
+      width: 1.2rem;
+      color: var(--muted);
+      content: "→";
+      font-size: 1.2rem;
+      text-align: center;
+      transform: translateY(-50%);
+    }
+
+    .table-wrap {
+      margin-block: 1.4rem 2rem;
+      padding: 0;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      font-size: 0.91rem;
+    }
+
+    caption {
+      padding: 0.85rem 1rem;
+      color: var(--ink);
+      background: color-mix(in srgb, var(--brand) 8%, var(--surface));
+      border-bottom: 1px solid var(--line);
+      font-weight: 800;
+      text-align: left;
+    }
+
+    th,
+    td {
+      padding: 0.75rem 0.85rem;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      font-weight: 750;
+    }
+
+    thead th {
+      background: var(--paper);
+      white-space: nowrap;
+    }
+
+    tbody tr:last-child > * {
+      border-bottom: 0;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 0.12rem 0.45rem;
+      color: var(--brand-strong);
+      background: color-mix(in srgb, var(--brand) 10%, var(--surface));
+      border: 1px solid color-mix(in srgb, var(--brand) 35%, var(--line));
+      border-radius: 100vmax;
+      font-size: 0.75rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .status.gate {
+      color: var(--good);
+      background: color-mix(in srgb, var(--good) 9%, var(--surface));
+      border-color: color-mix(in srgb, var(--good) 38%, var(--line));
+    }
+
+    .decision-id {
+      margin: 0 0 0.55rem;
+      color: var(--muted);
+      font: 700 0.77rem/1.2 ui-monospace, "SFMono-Regular", Consolas, monospace;
+      letter-spacing: 0.04em;
+    }
+
+    .decision-grid .card {
+      box-shadow: none;
+    }
+
+    .decision-grid .card p:last-child {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .risk-high {
+      color: #a33b2f;
+      font-weight: 800;
+    }
+
+    .risk-medium {
+      color: var(--warn);
+      font-weight: 800;
+    }
+
+    .exit-list {
+      display: grid;
+      gap: 0.75rem;
+      padding-left: 1.3rem;
+    }
+
+    .exit-list strong {
+      display: block;
+    }
+
+    body > footer {
+      padding-block: 2rem 3rem;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    body > footer p {
+      margin: 0;
+    }
+
+    @media (max-width: 56rem) {
+      .workflow {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .workflow li:nth-child(3)::after {
+        display: none;
+      }
+    }
+
+    @media (max-width: 36rem) {
+      .architecture-row {
+        grid-template-columns: 1fr;
+      }
+
+      .architecture-label {
+        min-height: auto;
+      }
+
+      .workflow {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+
+      .workflow li:not(:last-child)::after {
+        top: calc(100% + 0.05rem);
+        left: 50%;
+        display: block;
+        transform: translateX(-50%) rotate(90deg);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --ink: #e7eef2;
+        --muted: #acbdc8;
+        --paper: #101820;
+        --surface: #17232c;
+        --line: #40515c;
+        --brand: #68b6d7;
+        --brand-strong: #91d2eb;
+        --accent: #f29a69;
+        --good: #7cd3a2;
+        --warn: #efbd65;
+        --shadow: none;
+      }
+
+      .risk-high {
+        color: #ff9f93;
+      }
+    }
+
+    @media print {
+      :root {
+        color-scheme: light;
+        --ink: #111111;
+        --muted: #444444;
+        --paper: #ffffff;
+        --surface: #ffffff;
+        --line: #b8b8b8;
+        --brand: #174d64;
+        --brand-strong: #174d64;
+        --accent: #8e421c;
+        --shadow: none;
+      }
+
+      @page {
+        margin: 1.4cm;
+      }
+
+      body {
+        background: white;
+        font-size: 9.5pt;
+      }
+
+      header,
+      main,
+      footer {
+        width: 100%;
+      }
+
+      .hero {
+        padding-top: 0;
+      }
+
+      nav,
+      .skip-link {
+        display: none;
+      }
+
+      section {
+        padding-block: 1.5rem;
+        break-before: page;
+      }
+
+      .table-wrap {
+        break-before: auto;
+      }
+
+      #direction {
+        break-before: auto;
+      }
+
+      h1 {
+        font-size: 34pt;
+      }
+
+      h2 {
+        font-size: 21pt;
+      }
+
+      h2,
+      h3 {
+        break-after: avoid;
+      }
+
+      .card,
+      figure,
+      table,
+      tr {
+        break-inside: avoid;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <header>
+    <div class="hero">
+      <p class="eyebrow">Year One · Technical Brief</p>
+      <h1>FreeCAD Extreme</h1>
+      <p class="lede">A measured path to a faster, more reliable FreeCAD—built upstream-first, proven on Apple Silicon, and governed by compatibility and benchmark evidence.</p>
+      <ul class="meta" aria-label="Document metadata">
+        <li><strong>Status:</strong> Foundation direction</li>
+        <li><strong>Horizon:</strong> Year one</li>
+        <li><strong>Platform:</strong> Apple Silicon</li>
+        <li><strong>Compatibility:</strong> FCStd 0.21+</li>
+      </ul>
+    </div>
+
+    <nav aria-label="Technical brief sections">
+      <ul>
+        <li><a href="#direction">Direction</a></li>
+        <li><a href="#phases">Phases</a></li>
+        <li><a href="#architecture">Architecture</a></li>
+        <li><a href="#migration">Migration</a></li>
+        <li><a href="#benchmarks">Benchmarks</a></li>
+        <li><a href="#kernel-gates">Kernel gates</a></li>
+        <li><a href="#risks">Risks</a></li>
+        <li><a href="#decisions">Decisions</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="main-content">
+    <section id="direction" aria-labelledby="direction-title">
+      <p class="eyebrow">01 · Mandate</p>
+      <h2 id="direction-title">Direction before disruption</h2>
+      <p class="section-intro">The first year strengthens the product people already use. Replacement work starts only where measured evidence shows the existing architecture cannot meet the bar.</p>
+
+      <ul class="principles">
+        <li class="card">
+          <span class="number" aria-hidden="true">1</span>
+          <h3>Upstream-first</h3>
+          <p>Prefer independently reviewable fixes that can return to FreeCAD. Record every deliberate divergence, its owner, and its exit path.</p>
+        </li>
+        <li class="card">
+          <span class="number" aria-hidden="true">2</span>
+          <h3>Two macOS releases</h3>
+          <p>Support Apple Silicon on the current and previous major macOS versions with reproducible builds, ad-hoc-signed bundles, and launch smoke tests.</p>
+        </li>
+        <li class="card">
+          <span class="number" aria-hidden="true">3</span>
+          <h3>Compatible by contract</h3>
+          <p>Open and migrate editable FCStd documents from FreeCAD 0.21 onward. Preserve common Python API behavior through versioned compatibility shims.</p>
+        </li>
+        <li class="card">
+          <span class="number" aria-hidden="true">4</span>
+          <h3>Benchmarks decide</h3>
+          <p>Measure correctness, latency, memory, and interaction quality before changing internals. A kernel rewrite is an option, never a premise.</p>
+        </li>
+      </ul>
+
+      <aside class="callout" aria-labelledby="north-star-title">
+        <h3 id="north-star-title">First workflow</h3>
+        <ol class="workflow" aria-label="First benchmark workflow">
+          <li>Sketch</li>
+          <li>Features</li>
+          <li>Edits</li>
+          <li>STEP</li>
+          <li>Drawing</li>
+          <li>Verify</li>
+        </ol>
+        <p>“Verify” closes the loop: reopen the FCStd file, recompute, compare geometry, and inspect the exported STEP model and production drawing.</p>
+      </aside>
+    </section>
+
+    <section id="phases" aria-labelledby="phases-title">
+      <p class="eyebrow">02 · Execution</p>
+      <h2 id="phases-title">Year-one phases</h2>
+      <p class="section-intro">Four gated phases move from reproducibility to focused improvement. A phase may overlap the next only after its evidence is versioned and repeatable.</p>
+
+      <ol class="phase-grid">
+        <li class="card phase">
+          <p class="phase-label">Phase 1 · Establish</p>
+          <h3>Reproducible foundation</h3>
+          <ul>
+            <li>Build native Apple Silicon applications.</li>
+            <li>Exercise C++, CLI, Pivy, and bundle smoke tests.</li>
+            <li>Pin the current and previous macOS CI lanes.</li>
+            <li>Publish baseline environment metadata.</li>
+          </ul>
+          <footer><strong>Exit:</strong> clean checkout to launchable bundle is documented and repeatable.</footer>
+        </li>
+        <li class="card phase">
+          <p class="phase-label">Phase 2 · Contract</p>
+          <h3>Migration and baselines</h3>
+          <ul>
+            <li>Version a representative FCStd 0.21+ corpus.</li>
+            <li>Define common Python API compatibility.</li>
+            <li>Capture workflow correctness and performance.</li>
+            <li>Make failures explicit and reproducible.</li>
+          </ul>
+          <footer><strong>Exit:</strong> migration and benchmark scorecards run without manual interpretation.</footer>
+        </li>
+        <li class="card phase">
+          <p class="phase-label">Phase 3 · Improve</p>
+          <h3>Upstreamable reliability</h3>
+          <ul>
+            <li>Prioritize topological naming and recompute faults.</li>
+            <li>Improve feature edits and TechDraw output.</li>
+            <li>Remove migration data-loss paths.</li>
+            <li>Submit bounded changes upstream-first.</li>
+          </ul>
+          <footer><strong>Exit:</strong> the workflow meets release gates on both supported macOS versions.</footer>
+        </li>
+        <li class="card phase">
+          <p class="phase-label">Phase 4 · Prove</p>
+          <h3>Targeted kernel research</h3>
+          <ul>
+            <li>Select only unresolved, benchmarked failures.</li>
+            <li>Prototype behind the geometry boundary.</li>
+            <li>Run identical corpus and migration checks.</li>
+            <li>Adopt, defer, or reject with a decision record.</li>
+          </ul>
+          <footer><strong>Exit:</strong> evidence supports a bounded adoption decision—not a speculative rewrite.</footer>
+        </li>
+      </ol>
+
+      <div class="callout">
+        <strong>Expansion gate.</strong> Assemblies, direct modeling, and mesh or reverse-engineering workflows enter the roadmap only after the first workflow meets its correctness, migration, and release thresholds.
+      </div>
+    </section>
+
+    <section id="architecture" aria-labelledby="architecture-title">
+      <p class="eyebrow">03 · System shape</p>
+      <h2 id="architecture-title">Architecture with a narrow seam</h2>
+      <p class="section-intro">Keep FreeCAD’s document and workbench model. Strengthen the interfaces where compatibility, geometry, and platform concerns cross boundaries.</p>
+
+      <figure>
+        <div class="architecture" role="img" aria-label="Layered architecture from user workflows through workbenches, compatibility and document services, geometry boundary, and platform foundations">
+          <div class="architecture-row">
+            <span class="architecture-label">Workflow</span>
+            <div class="architecture-items">
+              <span>Sketch</span>
+              <span>Features &amp; edits</span>
+              <span>STEP exchange</span>
+              <span>TechDraw</span>
+            </div>
+          </div>
+          <div class="architecture-row">
+            <span class="architecture-label">Product</span>
+            <div class="architecture-items">
+              <span>Sketcher</span>
+              <span>Part Design</span>
+              <span>Import / Export</span>
+              <span>TechDraw</span>
+            </div>
+          </div>
+          <div class="architecture-row">
+            <span class="architecture-label">Contracts</span>
+            <div class="architecture-items">
+              <span>Common Python API</span>
+              <span>Document &amp; recompute</span>
+              <span>FCStd migration reader</span>
+            </div>
+          </div>
+          <div class="architecture-row">
+            <span class="architecture-label">Geometry seam</span>
+            <div class="architecture-items">
+              <span>TopoShape adapter</span>
+              <span>Naming &amp; provenance</span>
+              <span>Equivalence tests</span>
+            </div>
+          </div>
+          <div class="architecture-row">
+            <span class="architecture-label">Foundation</span>
+            <div class="architecture-items">
+              <span>OCCT (production)</span>
+              <span>Isolated A/B prototype</span>
+              <span>Apple Silicon bundle &amp; CI</span>
+            </div>
+          </div>
+        </div>
+        <figcaption>The production path remains OCCT. Research implementations must stay behind the geometry seam and consume the same corpus, document contract, and scorecards.</figcaption>
+      </figure>
+
+      <section class="table-wrap" tabindex="0" aria-label="Architecture responsibilities; scroll horizontally if needed">
+        <table>
+          <caption>Architecture responsibilities</caption>
+          <thead>
+            <tr>
+              <th scope="col">Boundary</th>
+              <th scope="col">Stable contract</th>
+              <th scope="col">Allowed change</th>
+              <th scope="col">Evidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Python API</th>
+              <td>Common scripts and workbench entry points</td>
+              <td>Versioned shim, warning, then documented removal</td>
+              <td>Compatibility script suite</td>
+            </tr>
+            <tr>
+              <th scope="row">Document</th>
+              <td>Property restoration, recompute, save-copy</td>
+              <td>Explicit migration with diagnostics</td>
+              <td>FCStd golden corpus</td>
+            </tr>
+            <tr>
+              <th scope="row">Geometry</th>
+              <td>Shape operations exposed through TopoShape</td>
+              <td>Adapter-level implementation or bounded internal fix</td>
+              <td>Geometry equivalence and performance</td>
+            </tr>
+            <tr>
+              <th scope="row">Platform</th>
+              <td>Launchable native app on two macOS majors</td>
+              <td>Reproducible packaging and signing updates</td>
+              <td>CI build, launch, CLI, and bundle smoke tests</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </section>
+
+    <section id="migration" aria-labelledby="migration-title">
+      <p class="eyebrow">04 · Compatibility</p>
+      <h2 id="migration-title">Migration is a product contract</h2>
+      <p class="section-intro">Files from FreeCAD 0.21 and newer must open as editable documents without silent loss. Migration is forward-only and preserves the original file.</p>
+
+      <ol class="exit-list">
+        <li>
+          <strong>Detect and inventory.</strong>
+          Read format and producer metadata, inventory unsupported objects or properties, and choose an explicit versioned migration path.
+        </li>
+        <li>
+          <strong>Restore and migrate in memory.</strong>
+          Apply ordered property and object migrations, preserve unknown data when safe, and emit structured diagnostics for every lossy or unsupported case.
+        </li>
+        <li>
+          <strong>Recompute and compare.</strong>
+          Recompute without hidden repair, then compare object graph, placement, units, and geometry against corpus expectations.
+        </li>
+        <li>
+          <strong>Save to a copy.</strong>
+          Never overwrite the source during migration. Save in the current format to a user-selected copy and retain a migration report.
+        </li>
+        <li>
+          <strong>Reopen and verify.</strong>
+          Reopen the copy, recompute again, and run geometry and workflow checks. A warning-free open alone is not success.
+        </li>
+      </ol>
+
+      <section class="table-wrap" tabindex="0" aria-label="Compatibility matrix; scroll horizontally if needed">
+        <table>
+          <caption>Compatibility policy</caption>
+          <thead>
+            <tr>
+              <th scope="col">Input</th>
+              <th scope="col">Commitment</th>
+              <th scope="col">Save behavior</th>
+              <th scope="col">Failure behavior</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">FCStd 0.21+</th>
+              <td>Open, migrate, recompute, and remain editable</td>
+              <td>Current format, new copy</td>
+              <td>Stop on unsafe loss; identify affected objects and properties</td>
+            </tr>
+            <tr>
+              <th scope="row">Older FCStd</th>
+              <td>Best effort outside the year-one guarantee</td>
+              <td>Current format, new copy</td>
+              <td>Explicit unsupported-version diagnostic</td>
+            </tr>
+            <tr>
+              <th scope="row">Current FCStd</th>
+              <td>Round-trip with no object, property, or geometry loss</td>
+              <td>Normal save</td>
+              <td>Fail the regression gate</td>
+            </tr>
+            <tr>
+              <th scope="row">New file in old FreeCAD</th>
+              <td>No backward-open guarantee</td>
+              <td>No down-save format</td>
+              <td>Document the boundary; exchange via STEP or supported exports</td>
+            </tr>
+            <tr>
+              <th scope="row">Common Python API</th>
+              <td>Preserve established scripting paths used by the corpus</td>
+              <td>Not applicable</td>
+              <td>Versioned deprecation and compatibility shim before removal</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <aside class="callout" aria-labelledby="failure-rule-title">
+        <h3 id="failure-rule-title">Non-negotiable failure rule</h3>
+        <p>No silent substitution, dropped property, skipped object, or geometry repair. If safe migration is impossible, leave the source untouched and explain what blocked it.</p>
+      </aside>
+    </section>
+
+    <section id="benchmarks" aria-labelledby="benchmarks-title">
+      <p class="eyebrow">05 · Evidence</p>
+      <h2 id="benchmarks-title">Benchmark scorecards</h2>
+      <p class="section-intro">Baselines are recorded before optimization. Results include the corpus revision, FreeCAD commit, macOS version, hardware class, build preset, run count, and raw artifacts.</p>
+
+      <section class="table-wrap" tabindex="0" aria-label="Correctness scorecard; scroll horizontally if needed">
+        <table>
+          <caption>Correctness and compatibility scorecard</caption>
+          <thead>
+            <tr>
+              <th scope="col">Measure</th>
+              <th scope="col">Baseline</th>
+              <th scope="col">Year-one release gate</th>
+              <th scope="col">State</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">FCStd 0.21+ open → recompute → save-copy → reopen</th>
+              <td>Capture from versioned corpus</td>
+              <td>100% pass; zero silent loss</td>
+              <td><span class="status">Baseline pending</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Parametric edit stability</th>
+              <td>Capture expected references and geometry</td>
+              <td>100% expected reference survival in release corpus</td>
+              <td><span class="status">Baseline pending</span></td>
+            </tr>
+            <tr>
+              <th scope="row">STEP round-trip geometry</th>
+              <td>Capture topology, volume, area, and bounds</td>
+              <td>All models within documented tolerances</td>
+              <td><span class="status">Baseline pending</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Production drawing</th>
+              <td>Capture views, dimensions, scale, and page output</td>
+              <td>100% semantic checks; reviewed visual reference set</td>
+              <td><span class="status">Baseline pending</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Common Python API suite</th>
+              <td>Inventory common calls used by workflow fixtures</td>
+              <td>100% pass or approved versioned migration</td>
+              <td><span class="status">Corpus required</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="table-wrap" tabindex="0" aria-label="Performance scorecard; scroll horizontally if needed">
+        <table>
+          <caption>Performance and delivery scorecard</caption>
+          <thead>
+            <tr>
+              <th scope="col">Measure</th>
+              <th scope="col">Method</th>
+              <th scope="col">Regression gate</th>
+              <th scope="col">Improvement signal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Open and first recompute</th>
+              <td>Median and p95 over repeated cold and warm runs</td>
+              <td>No unexplained &gt;10% slowdown</td>
+              <td>At least 20% on a representative bottleneck</td>
+            </tr>
+            <tr>
+              <th scope="row">Feature edit and recompute</th>
+              <td>Scripted edits with deterministic completion checks</td>
+              <td>No unexplained &gt;10% slowdown</td>
+              <td>Lower p95 and fewer recompute cascades</td>
+            </tr>
+            <tr>
+              <th scope="row">STEP import and export</th>
+              <td>Wall time, peak memory, and geometry parity</td>
+              <td>Correctness first; no &gt;10% time or memory regression</td>
+              <td>At least 20% time or memory gain without parity loss</td>
+            </tr>
+            <tr>
+              <th scope="row">Drawing generation</th>
+              <td>View update and final page output</td>
+              <td>No unexplained &gt;10% slowdown</td>
+              <td>Stable p95 under repeated updates</td>
+            </tr>
+            <tr>
+              <th scope="row">Apple Silicon delivery</th>
+              <td>Clean CI build, package, sign, launch, and smoke</td>
+              <td>Both supported macOS majors remain green</td>
+              <td>Lower variance and fewer manual steps</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <p><span class="status gate">Rule</span> Thresholds are evaluated against a frozen baseline on comparable hardware. Correctness and migration gates cannot be traded for speed.</p>
+    </section>
+
+    <section id="kernel-gates" aria-labelledby="kernel-title">
+      <p class="eyebrow">06 · Adoption control</p>
+      <h2 id="kernel-title">Kernel adoption gates</h2>
+      <p class="section-intro">OCCT remains the production kernel. A new component advances only when every gate below has written evidence; a whole-kernel rewrite is outside the default plan.</p>
+
+      <ol class="gate-grid">
+        <li class="card">
+          <span class="number" aria-hidden="true">1</span>
+          <h3>Measured trigger</h3>
+          <p>A release-blocking benchmark failure remains after a bounded upstream-first fix has been attempted or ruled out with evidence.</p>
+        </li>
+        <li class="card">
+          <span class="number" aria-hidden="true">2</span>
+          <h3>Isolated boundary</h3>
+          <p>The prototype sits behind the geometry seam, avoids kernel types in new public APIs, and can be removed without document-format churn.</p>
+        </li>
+        <li class="card">
+          <span class="number" aria-hidden="true">3</span>
+          <h3>Correctness parity</h3>
+          <p>The same topology, geometry, STEP, drawing, and adversarial corpus passes within documented tolerances.</p>
+        </li>
+        <li class="card">
+          <span class="number" aria-hidden="true">4</span>
+          <h3>Migration safety</h3>
+          <p>FCStd 0.21+ documents retain editability, stable provenance, and explicit diagnostics across old and new geometry paths.</p>
+        </li>
+        <li class="card">
+          <span class="number" aria-hidden="true">5</span>
+          <h3>Material gain</h3>
+          <p>The candidate shows a repeatable ≥20% gain on the blocking measure or uniquely resolves a correctness failure that OCCT cannot.</p>
+        </li>
+        <li class="card">
+          <span class="number" aria-hidden="true">6</span>
+          <h3>Stewardship</h3>
+          <p>License compatibility, third-party provenance, maintenance ownership, security response, and upstream strategy are approved.</p>
+        </li>
+      </ol>
+
+      <div class="callout">
+        <strong>Decision outcomes:</strong> adopt as a bounded subsystem, continue research with a named evidence gap, or reject and archive the result. “Promising” is not an adoption state.
+      </div>
+    </section>
+
+    <section id="risks" aria-labelledby="risks-title">
+      <p class="eyebrow">07 · Controls</p>
+      <h2 id="risks-title">Risks and mitigations</h2>
+      <p class="section-intro">The highest risks are uncontrolled divergence and undetected compatibility loss—not a lack of new code.</p>
+
+      <section class="table-wrap" tabindex="0" aria-label="Risk register; scroll horizontally if needed">
+        <table>
+          <caption>Year-one risk register</caption>
+          <thead>
+            <tr>
+              <th scope="col">Risk</th>
+              <th scope="col">Exposure</th>
+              <th scope="col">Control</th>
+              <th scope="col">Early warning</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Fork drift from FreeCAD</th>
+              <td class="risk-high">High</td>
+              <td>Small upstreamable patches; divergence log; regular integration</td>
+              <td>Patch queue age and recurring merge conflicts rise</td>
+            </tr>
+            <tr>
+              <th scope="row">Silent FCStd data loss</th>
+              <td class="risk-high">High</td>
+              <td>Golden corpus, save-copy policy, structured migration diagnostics</td>
+              <td>Object, property, or geometry delta without an expected record</td>
+            </tr>
+            <tr>
+              <th scope="row">Kernel scope expansion</th>
+              <td class="risk-high">High</td>
+              <td>Measured trigger and six mandatory adoption gates</td>
+              <td>Prototype changes public APIs or persistence before parity</td>
+            </tr>
+            <tr>
+              <th scope="row">macOS release churn</th>
+              <td class="risk-medium">Medium</td>
+              <td>Current/previous support window and reproducible bundle smoke lanes</td>
+              <td>One supported lane becomes optional or manually tested</td>
+            </tr>
+            <tr>
+              <th scope="row">Benchmark gaming or noise</th>
+              <td class="risk-medium">Medium</td>
+              <td>Frozen corpus, raw results, repeated runs, comparable hardware</td>
+              <td>Headline metric improves while p95, memory, or correctness regresses</td>
+            </tr>
+            <tr>
+              <th scope="row">Python ecosystem breakage</th>
+              <td class="risk-medium">Medium</td>
+              <td>Common API suite, compatibility shims, versioned deprecation</td>
+              <td>Popular workflow scripts require fork-only branches</td>
+            </tr>
+            <tr>
+              <th scope="row">License or provenance uncertainty</th>
+              <td class="risk-high">High</td>
+              <td>LGPL-compatible contribution path and dependency provenance gate</td>
+              <td>Code cannot be redistributed, audited, or proposed upstream</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </section>
+
+    <section id="decisions" aria-labelledby="decisions-title">
+      <p class="eyebrow">08 · Record</p>
+      <h2 id="decisions-title">Foundation decisions</h2>
+      <p class="section-intro">These decisions define year one. Reversals require new evidence, an explicit decision record, and a migration or exit plan.</p>
+
+      <div class="decision-grid">
+        <article class="card">
+          <p class="decision-id">D-001 · Accepted</p>
+          <h3>Develop upstream-first</h3>
+          <p>Keep work independently reviewable and suitable for FreeCAD whenever practical.</p>
+          <p>Revisit if a documented product requirement cannot be met upstream without unacceptable harm to the benchmark or compatibility contract.</p>
+        </article>
+        <article class="card">
+          <p class="decision-id">D-002 · Accepted</p>
+          <h3>Target Apple Silicon first</h3>
+          <p>Support the current and previous major macOS releases as the initial product platform.</p>
+          <p>Expand after the first workflow and release pipeline meet their gates.</p>
+        </article>
+        <article class="card">
+          <p class="decision-id">D-003 · Accepted</p>
+          <h3>Guarantee FCStd 0.21+ ingest</h3>
+          <p>Migrate forward to an editable current-format copy; do not promise old FreeCAD can open newly saved files.</p>
+          <p>Broaden only when corpus evidence supports a larger compatibility window.</p>
+        </article>
+        <article class="card">
+          <p class="decision-id">D-004 · Accepted</p>
+          <h3>Preserve common Python APIs</h3>
+          <p>Use compatibility shims and versioned migrations for established scripting paths.</p>
+          <p>Remove an API only after measured usage, deprecation, and a documented replacement.</p>
+        </article>
+        <article class="card">
+          <p class="decision-id">D-005 · Accepted</p>
+          <h3>Prove one workflow end to end</h3>
+          <p>Optimize sketch → features → edits → STEP → drawing before expanding breadth.</p>
+          <p>Expand when correctness, migration, performance, and delivery scorecards pass.</p>
+        </article>
+        <article class="card">
+          <p class="decision-id">D-006 · Accepted</p>
+          <h3>Keep OCCT in production</h3>
+          <p>Treat alternative kernel work as isolated A/B research behind adoption gates.</p>
+          <p>Adopt only with parity, migration safety, provenance, stewardship, and material measured gain.</p>
+        </article>
+      </div>
+
+      <aside class="callout" aria-labelledby="done-title">
+        <h3 id="done-title">Year-one definition of done</h3>
+        <p>A reproducible Apple Silicon bundle passes on both supported macOS releases; every FCStd 0.21+ corpus file migrates without silent loss; the first workflow meets published correctness and regression gates; common Python API fixtures pass; and any kernel decision carries complete benchmark, migration, licensing, and upstream evidence.</p>
+      </aside>
+    </section>
+  </main>
+
+  <footer>
+    <p>FreeCAD Extreme · Year One Technical Brief · A living direction governed by versioned evidence and decision records.</p>
+  </footer>
+</body>
+</html>
