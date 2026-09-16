@@ -40,6 +40,7 @@ public:
         Base::ContentType
     ) override
     {
+        diagnostics += message;
         if (level == Base::LogStyle::Warning) {
             warnings.push_back(message);
         }
@@ -51,6 +52,7 @@ public:
     }
 
     std::vector<std::string> warnings;
+    std::string diagnostics;
 };
 
 class ScopedConsoleObserver
@@ -210,6 +212,7 @@ TEST_F(BackwardCompatibilityTest, TestV021MigrationContractLifecycle)
     setDocument(doc);
 
     ASSERT_NE(doc, nullptr);
+    SCOPED_TRACE(logger.diagnostics);
     EXPECT_EQ(std::string(doc->getProgramVersion()).find("0.21"), 0);
     auto* chamfer = expectParametricHistory(*doc);
     ASSERT_NE(chamfer, nullptr);
