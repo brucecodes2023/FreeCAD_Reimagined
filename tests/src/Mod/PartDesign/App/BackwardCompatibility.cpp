@@ -121,8 +121,7 @@ PartDesign::Chamfer* expectParametricHistory(App::Document& document)
 
     auto* body = dynamic_cast<PartDesign::Body*>(document.getObject("Body"));
     auto* pad = dynamic_cast<PartDesign::Pad*>(document.getObject("Pad"));
-    auto* revolution =
-        dynamic_cast<PartDesign::Revolution*>(document.getObject("Revolution"));
+    auto* revolution = dynamic_cast<PartDesign::Revolution*>(document.getObject("Revolution"));
     auto* chamfer = dynamic_cast<PartDesign::Chamfer*>(document.getObject("Chamfer"));
     EXPECT_NE(body, nullptr);
     EXPECT_NE(pad, nullptr);
@@ -231,8 +230,9 @@ TEST_F(BackwardCompatibilityTest, TestV021MigrationContractLifecycle)
     ASSERT_NE(expectParametricHistory(*doc), nullptr);
 
     const std::string originalPath = doc->getFileName();
-    const auto& copyPath =
-        setTemporaryFile(App::Application::getTempFileName() + std::string(".FCStd"));
+    const auto& copyPath = setTemporaryFile(
+        App::Application::getTempFileName() + std::string(".FCStd")
+    );
     ASSERT_TRUE(doc->saveCopy(copyPath.c_str()));
     EXPECT_EQ(std::string(doc->getFileName()), originalPath);
 
