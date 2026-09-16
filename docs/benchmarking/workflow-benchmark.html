@@ -1,0 +1,49 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Workflow benchmark and kernel gates</title>
+</head>
+<body>
+  <main>
+    <h1>Workflow benchmark and kernel gates</h1>
+    <p>
+      <code>TDTest.WorkflowBenchmarkTest</code> exercises one workflow:
+      sketch, pad and pocket, parameter edits, STEP round-trip, and TechDraw projection.
+      Normal test runs enforce deterministic correctness only.
+    </p>
+
+    <h2>Run it</h2>
+    <pre><code>FreeCAD -t TDTest.WorkflowBenchmarkTest
+FREECAD_WORKFLOW_BENCHMARK=1 FreeCAD -t TDTest.WorkflowBenchmarkTest</code></pre>
+    <p>
+      The opt-in form prints one sorted <code>WORKFLOW_BENCHMARK</code> JSON record.
+      Each stage reports wall-clock seconds. Platforms with Python's
+      <code>resource</code> module also report process peak RSS and its stage increase.
+      Metric values are observations, never correctness assertions.
+    </p>
+
+    <h2>Kernel experiment boundary</h2>
+    <p>
+      The experiment boundary is the STEP round-trip shape passed to the isolated
+      <code>assertKernelEquivalent</code> comparator. It checks shape validity, one-solid
+      topology counts, volume, and symmetric material difference. It does not introduce
+      a kernel interface, select a replacement kernel, or generalize unrelated geometry.
+    </p>
+
+    <h2>Adoption gates</h2>
+    <ol>
+      <li>The edited model remains valid and has the expected volume.</li>
+      <li>The STEP result passes the kernel comparator at the recorded tolerance.</li>
+      <li>The TechDraw view reaches an up-to-date state with the expected visible edges.</li>
+      <li>Existing focused and module test suites remain green.</li>
+      <li>
+        Before an experiment starts, its owner records timing and memory budgets for the
+        same runner. Adoption requires meeting those budgets; this test deliberately has
+        no universal hardware-dependent threshold.
+      </li>
+    </ol>
+  </main>
+</body>
+</html>

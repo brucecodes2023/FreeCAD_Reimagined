@@ -191,6 +191,7 @@ SET(TDTest_SRCS
     TDTest/DrawViewDetailTest.py
     TDTest/DrawViewScaleTypeTest.py
     TDTest/TechDrawTestUtilities.py
+    TDTest/WorkflowBenchmarkTest.py
 )
 
 SET(TDTestFile_SRCS
