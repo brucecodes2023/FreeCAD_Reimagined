@@ -155,7 +155,7 @@ protected:
     static void SetUpTestSuite()
     {
         tests::initApplication();
-        Base::Interpreter().runString("import PartDesign");
+        Base::Interpreter().runString("import _PartDesign");
     }
 
     void SetUp() override
