@@ -2375,7 +2375,41 @@ class TestTopologicalNamingProblem(unittest.TestCase):
 
     def testPD_TNPSketchPadSketchConstructionChange(self):
         """Prove that a sketch attached to a padded sketch shape does not have a problem when the initial sketch has geometry changed from Construction"""
-        pass  # TODO
+        doc = App.ActiveDocument
+        body = doc.addObject("PartDesign::Body", "Body")
+        sketch = body.newObject("Sketcher::SketchObject", "Sketch")
+        TestSketcherApp.CreateRectangleSketch(sketch, (0, 0), (30, 30))
+        construction = sketch.addGeometry(
+            [
+                Part.LineSegment(App.Vector(0, 0), App.Vector(-10, 10)),
+                Part.LineSegment(App.Vector(-10, 10), App.Vector(-5, 20)),
+                Part.LineSegment(App.Vector(-5, 20), App.Vector(-10, 25)),
+                Part.LineSegment(App.Vector(-10, 25), App.Vector(0, 30)),
+            ],
+            True,
+        )
+        pad = body.newObject("PartDesign::Pad", "Pad")
+        pad.Profile = sketch
+        pad.Length = 10
+        doc.recompute()
+
+        attachedSketch = body.newObject("Sketcher::SketchObject", "Sketch001")
+        attachedSketch.AttachmentSupport = (pad, ["Face6"])
+        attachedSketch.MapMode = "FlatFace"
+        TestSketcherApp.CreateRectangleSketch(attachedSketch, (5, 5), (20, 5))
+        attachedPad = body.newObject("PartDesign::Pad", "Pad001")
+        attachedPad.Profile = attachedSketch
+        attachedPad.Length = 10
+        doc.recompute()
+
+        for geometry in construction:
+            sketch.setConstruction(geometry, False)
+        sketch.setConstruction(3, True)
+        doc.recompute()
+
+        self.assertEqual(attachedSketch.AttachmentSupport[0][1][0], "Face9")
+        self.assertTrue(attachedSketch.isValid())
+        self.assertTrue(attachedPad.isValid())
 
     def testPD_TNPSketchPadSketchTrim(self):
         """Prove that a sketch attached to a padded sketch shape does not have a problem when the initial sketch has geometry trimmed"""
