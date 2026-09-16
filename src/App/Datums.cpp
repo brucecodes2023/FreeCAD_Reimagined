@@ -26,6 +26,7 @@
 #include <string>
 
 #include <App/Document.h>
+#include <Base/Console.h>
 #include <Base/Exception.h>
 #include <Base/Placement.h>
 #include <Base/Tools.h>
@@ -356,6 +357,12 @@ void LocalCoordinateSystem::migrateOriginPoint()
         origin->purgeTouched();
         features.push_back(origin);
         OriginFeatures.setValues(features);
+        Base::Console().warning(
+            "FCStd migration added the missing origin point to %s while restoring a document "
+            "written by FreeCAD %s.\n",
+            getFullName(),
+            getDocument()->getProgramVersion()
+        );
     }
 }
 

@@ -117,7 +117,7 @@ void expectSameGeometry(const GeometryFingerprint& expected, const PartDesign::C
 
 PartDesign::Chamfer* expectParametricHistory(App::Document& document)
 {
-    EXPECT_EQ(document.getObjects().size(), 13);
+    EXPECT_EQ(document.getObjects().size(), 14);
 
     auto* body = dynamic_cast<PartDesign::Body*>(document.getObject("Body"));
     auto* pad = dynamic_cast<PartDesign::Pad*>(document.getObject("Pad"));
@@ -221,8 +221,12 @@ TEST_F(BackwardCompatibilityTest, TestV021MigrationContractLifecycle)
     EXPECT_GT(originalGeometry.topology[1], 0);
 
     EXPECT_TRUE(std::ranges::any_of(logger.warnings, [](const std::string& warning) {
-        return warning.find("being adjusted to maintain the same geometry") != std::string::npos
+        return warning.find("being adjusted to maintain") != std::string::npos
             && warning.find("FreeCAD 0.21.x") != std::string::npos;
+    }));
+    EXPECT_TRUE(std::ranges::any_of(logger.warnings, [](const std::string& warning) {
+        return warning.find("FCStd migration added the missing origin point") != std::string::npos
+            && warning.find("FreeCAD 0.21") != std::string::npos;
     }));
 
     doc->recompute();
