@@ -179,7 +179,9 @@ jobs:
       if: runner.os == 'macOS' && inputs.buildMacOSBundle && !inputs.skipBuild
       env:
         FREECAD_INSTALL_3DCONNEXION: "false"
-      run: pixi run --locked "bash package/bundle/build.sh"
+      run: |
+        pixi run --locked initialize
+        pixi run --locked "bash package/bundle/build.sh"
 
     - name: Print ccache statistics after Build
       if: "!inputs.skipBuild"
