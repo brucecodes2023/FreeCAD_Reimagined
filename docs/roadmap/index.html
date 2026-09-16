@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -387,6 +387,7 @@
 
     .table-wrap {
       margin-block: 1.4rem 2rem;
+      padding: 0;
       overflow-x: auto;
       border: 1px solid var(--line);
       border-radius: var(--radius);
@@ -592,6 +593,10 @@
       section {
         padding-block: 1.5rem;
         break-before: page;
+      }
+
+      .table-wrap {
+        break-before: auto;
       }
 
       #direction {
@@ -808,7 +813,7 @@
         <figcaption>The production path remains OCCT. Research implementations must stay behind the geometry seam and consume the same corpus, document contract, and scorecards.</figcaption>
       </figure>
 
-      <div class="table-wrap" tabindex="0" role="region" aria-label="Architecture responsibilities; scroll horizontally if needed">
+      <section class="table-wrap" tabindex="0" aria-label="Architecture responsibilities; scroll horizontally if needed">
         <table>
           <caption>Architecture responsibilities</caption>
           <thead>
@@ -846,7 +851,7 @@
             </tr>
           </tbody>
         </table>
-      </div>
+      </section>
     </section>
 
     <section id="migration" aria-labelledby="migration-title">
@@ -877,7 +882,7 @@
         </li>
       </ol>
 
-      <div class="table-wrap" tabindex="0" role="region" aria-label="Compatibility matrix; scroll horizontally if needed">
+      <section class="table-wrap" tabindex="0" aria-label="Compatibility matrix; scroll horizontally if needed">
         <table>
           <caption>Compatibility policy</caption>
           <thead>
@@ -921,10 +926,10 @@
             </tr>
           </tbody>
         </table>
-      </div>
+      </section>
 
-      <aside class="callout">
-        <h3>Non-negotiable failure rule</h3>
+      <aside class="callout" aria-labelledby="failure-rule-title">
+        <h3 id="failure-rule-title">Non-negotiable failure rule</h3>
         <p>No silent substitution, dropped property, skipped object, or geometry repair. If safe migration is impossible, leave the source untouched and explain what blocked it.</p>
       </aside>
     </section>
@@ -934,7 +939,7 @@
       <h2 id="benchmarks-title">Benchmark scorecards</h2>
       <p class="section-intro">Baselines are recorded before optimization. Results include the corpus revision, FreeCAD commit, macOS version, hardware class, build preset, run count, and raw artifacts.</p>
 
-      <div class="table-wrap" tabindex="0" role="region" aria-label="Correctness scorecard; scroll horizontally if needed">
+      <section class="table-wrap" tabindex="0" aria-label="Correctness scorecard; scroll horizontally if needed">
         <table>
           <caption>Correctness and compatibility scorecard</caption>
           <thead>
@@ -978,9 +983,9 @@
             </tr>
           </tbody>
         </table>
-      </div>
+      </section>
 
-      <div class="table-wrap" tabindex="0" role="region" aria-label="Performance scorecard; scroll horizontally if needed">
+      <section class="table-wrap" tabindex="0" aria-label="Performance scorecard; scroll horizontally if needed">
         <table>
           <caption>Performance and delivery scorecard</caption>
           <thead>
@@ -1024,7 +1029,7 @@
             </tr>
           </tbody>
         </table>
-      </div>
+      </section>
 
       <p><span class="status gate">Rule</span> Thresholds are evaluated against a frozen baseline on comparable hardware. Correctness and migration gates cannot be traded for speed.</p>
     </section>
@@ -1077,7 +1082,7 @@
       <h2 id="risks-title">Risks and mitigations</h2>
       <p class="section-intro">The highest risks are uncontrolled divergence and undetected compatibility loss—not a lack of new code.</p>
 
-      <div class="table-wrap" tabindex="0" role="region" aria-label="Risk register; scroll horizontally if needed">
+      <section class="table-wrap" tabindex="0" aria-label="Risk register; scroll horizontally if needed">
         <table>
           <caption>Year-one risk register</caption>
           <thead>
@@ -1133,7 +1138,7 @@
             </tr>
           </tbody>
         </table>
-      </div>
+      </section>
     </section>
 
     <section id="decisions" aria-labelledby="decisions-title">
