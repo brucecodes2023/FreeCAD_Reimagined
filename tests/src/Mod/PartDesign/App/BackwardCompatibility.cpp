@@ -81,7 +81,7 @@ GeometryFingerprint geometryFingerprint(const PartDesign::Chamfer& chamfer)
 {
     const auto& shape = chamfer.Shape.getValue();
     GProp_GProps properties;
-    BRepGProp::VolumeProperties(shape.getShape(), properties);
+    BRepGProp::VolumeProperties(shape, properties);
 
     std::array<int, 4> counts {};
     const std::array<TopAbs_ShapeEnum, 4> types {
@@ -91,12 +91,12 @@ GeometryFingerprint geometryFingerprint(const PartDesign::Chamfer& chamfer)
         TopAbs_VERTEX,
     };
     for (std::size_t i = 0; i < types.size(); ++i) {
-        for (TopExp_Explorer explorer(shape.getShape(), types[i]); explorer.More(); explorer.Next()) {
+        for (TopExp_Explorer explorer(shape, types[i]); explorer.More(); explorer.Next()) {
             ++counts[i];
         }
     }
 
-    return {properties.Mass(), shape.getBoundBox(), counts};
+    return {properties.Mass(), chamfer.Shape.getBoundingBox(), counts};
 }
 
 void expectSameGeometry(const GeometryFingerprint& expected, const PartDesign::Chamfer& chamfer)
