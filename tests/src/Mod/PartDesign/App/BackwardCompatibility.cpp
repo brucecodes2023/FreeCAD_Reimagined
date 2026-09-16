@@ -18,6 +18,7 @@
 #include <App/Expression.h>
 #include <App/ObjectIdentifier.h>
 #include <Base/Console.h>
+#include <Base/Interpreter.h>
 #include <Mod/PartDesign/App/Body.h>
 #include <Mod/PartDesign/App/FeatureChamfer.h>
 #include <Mod/PartDesign/App/FeaturePad.h>
@@ -154,6 +155,7 @@ protected:
     static void SetUpTestSuite()
     {
         tests::initApplication();
+        Base::Interpreter().runString("import PartDesign");
     }
 
     void SetUp() override
