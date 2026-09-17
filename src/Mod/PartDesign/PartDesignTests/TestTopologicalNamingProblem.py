@@ -2548,7 +2548,113 @@ class TestTopologicalNamingProblem(unittest.TestCase):
 
     def testPD_TNPSketchPipeSketchMove(self):
         """Prove that a sketch attached to a piped sketch shape does not have a problem when the initial sketch has geometry moved"""
-        pass  # TODO
+        doc = App.ActiveDocument
+        App.activeDocument().addObject("PartDesign::Body", "Body")
+        doc.Body.newObject("Sketcher::SketchObject", "Sketch")
+        doc.Sketch.AttachmentSupport = (doc.XY_Plane, [""])
+        doc.Sketch.MapMode = "FlatFace"
+        geoList = []
+        geoList.append(Part.LineSegment(App.Vector(0, 0, 0), App.Vector(40, 0, 0)))
+        geoList.append(Part.LineSegment(App.Vector(40, 0, 0), App.Vector(40, 20, 0)))
+        geoList.append(Part.LineSegment(App.Vector(40, 20, 0), App.Vector(0, 20, 0)))
+        geoList.append(Part.LineSegment(App.Vector(0, 20, 0), App.Vector(0, 0, 0)))
+        doc.Sketch.addGeometry(geoList, False)
+        constraintList = []
+        constraintList.append(Sketcher.Constraint("Coincident", 0, 2, 1, 1))
+        constraintList.append(Sketcher.Constraint("Coincident", 1, 2, 2, 1))
+        constraintList.append(Sketcher.Constraint("Coincident", 2, 2, 3, 1))
+        constraintList.append(Sketcher.Constraint("Coincident", 3, 2, 0, 1))
+        constraintList.append(Sketcher.Constraint("Horizontal", 0))
+        constraintList.append(Sketcher.Constraint("Horizontal", 2))
+        constraintList.append(Sketcher.Constraint("Vertical", 1))
+        constraintList.append(Sketcher.Constraint("Vertical", 3))
+        doc.Sketch.addConstraint(constraintList)
+        doc.recompute()
+        doc.Body.newObject("Sketcher::SketchObject", "SketchSpine")
+        doc.SketchSpine.MapMode = "FlatFace"
+        doc.SketchSpine.AttachmentSupport = (doc.XZ_Plane, [""])
+        doc.SketchSpine.addGeometry(
+            Part.LineSegment(App.Vector(0.0, 0.0, 0), App.Vector(0, 10, 0)), False
+        )
+        doc.SketchSpine.addConstraint(Sketcher.Constraint("Coincident", 0, 1, -1, 1))
+        doc.SketchSpine.addConstraint(Sketcher.Constraint("PointOnObject", 0, 2, -2))
+        doc.SketchSpine.addConstraint(Sketcher.Constraint("DistanceY", 0, 1, 0, 2, 10))
+        doc.recompute()
+        doc.Body.newObject("PartDesign::AdditivePipe", "Pipe")
+        doc.Pipe.Profile = (
+            doc.Sketch,
+            [
+                "",
+            ],
+        )
+        doc.Pipe.Spine = (
+            doc.SketchSpine,
+            [
+                "",
+            ],
+        )
+        doc.Sketch.Visibility = False
+        doc.SketchSpine.Visibility = False
+        doc.recompute()
+        doc.Body.newObject("Sketcher::SketchObject", "Sketch001")
+        doc.Sketch001.AttachmentSupport = (
+            doc.Pipe,
+            [
+                "Face6",
+            ],
+        )
+        doc.Sketch001.MapMode = "FlatFace"
+        geoList = []
+        geoList.append(Part.LineSegment(App.Vector(5, 5, 0), App.Vector(5, 10, 0)))
+        geoList.append(Part.LineSegment(App.Vector(5, 10, 0), App.Vector(25, 10, 0)))
+        geoList.append(Part.LineSegment(App.Vector(25, 10, 0), App.Vector(25, 5, 0)))
+        geoList.append(Part.LineSegment(App.Vector(25, 5, 0), App.Vector(5, 5, 0)))
+        doc.Sketch001.addGeometry(geoList, False)
+        del geoList
+        constraintList = []
+        constraintList.append(Sketcher.Constraint("Coincident", 0, 2, 1, 1))
+        constraintList.append(Sketcher.Constraint("Coincident", 1, 2, 2, 1))
+        constraintList.append(Sketcher.Constraint("Coincident", 2, 2, 3, 1))
+        constraintList.append(Sketcher.Constraint("Coincident", 3, 2, 0, 1))
+        constraintList.append(Sketcher.Constraint("Vertical", 0))
+        constraintList.append(Sketcher.Constraint("Vertical", 2))
+        constraintList.append(Sketcher.Constraint("Horizontal", 1))
+        constraintList.append(Sketcher.Constraint("Horizontal", 3))
+        doc.Sketch001.addConstraint(constraintList)
+        doc.recompute()
+        doc.Body.newObject("PartDesign::Pad", "Pad001")
+        doc.Pad001.Profile = (
+            doc.Sketch001,
+            [
+                "",
+            ],
+        )
+        doc.Pad001.Length = 10
+        doc.Pad001.ReferenceAxis = (doc.Sketch001, ["N_Axis"])
+        doc.Sketch001.Visibility = False
+        doc.Pad001.Length = 10.000000
+        doc.Pad001.TaperAngle = 0.000000
+        doc.Pad001.UseCustomVector = 0
+        doc.Pad001.Direction = (0, 0, 1)
+        doc.Pad001.ReferenceAxis = (doc.Sketch001, ["N_Axis"])
+        doc.Pad001.AlongSketchNormal = 1
+        doc.Pad001.Type = 0
+        doc.Pad001.UpToFace = None
+        doc.Pad001.Reversed = 0
+        doc.Pad001.SideType = "One side"
+        doc.Pad001.Offset = 0
+        doc.recompute()
+        doc.Pipe.Visibility = False
+        doc.Sketch001.Visibility = False
+        expectedPlacement = doc.Sketch001.Placement.Matrix
+        doc.Sketch.moveGeometry(3, 0, App.Vector(-5, 0, 0), 1)
+        doc.Sketch.moveGeometry(0, 0, App.Vector(0.000000, -5, 0), 1)
+        doc.Sketch.moveGeometry(1, 0, App.Vector(-5, 0.000000, 0), 1)
+        doc.Sketch.moveGeometry(2, 0, App.Vector(-0, -5, 0), 1)
+        doc.recompute()
+        self.assertTrue(doc.Sketch001.isValid())
+        self.assertTrue(doc.Sketch001.AttachmentOffset.Matrix == App.Matrix())
+        self.assertTrue(doc.Sketch001.Placement.Matrix == expectedPlacement)
 
     def testSubelementNames(self):
         # Arrange
