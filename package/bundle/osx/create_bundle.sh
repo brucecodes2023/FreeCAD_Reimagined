@@ -152,9 +152,31 @@ else
     fi
     codesign --force --sign - FreeCAD.app
 
+    # ponytail: ad-hoc conda bundles fail codesign --strict; launcher smoke is the CI gate (before dmgbuild)
+    echo "Running FreeCAD bundle launcher smoke test..."
+    # ponytail: GUI --version/--safe-mode blocks on QMessageBox on headless runners; --console prints and exits
+    if ! FreeCAD.app/Contents/MacOS/FreeCAD --console --version; then
+        echo "FreeCAD bundle launcher smoke test failed; the signed application cannot start."
+        exit 1
+    fi
+
     # create the dmg
     dmgbuild -s dmg_settings.py "FreeCAD" "${version_name}.dmg"
 fi
+
+if [[ "${MACOS_SIGN_RELEASE}" == "true" ]]; then
+    echo "Verifying signed application bundle..."
+    codesign --verify --deep --strict FreeCAD.app
+
+    echo "Running FreeCAD bundle launcher smoke test..."
+    if ! FreeCAD.app/Contents/MacOS/FreeCAD --safe-mode --version; then
+        echo "FreeCAD bundle launcher smoke test failed; the signed application cannot start."
+        exit 1
+    fi
+fi
+
+echo "Verifying disk image..."
+hdiutil verify "${version_name}.dmg"
 
 # create hash
 sha256sum ${version_name}.dmg > ${version_name}.dmg-SHA256.txt
