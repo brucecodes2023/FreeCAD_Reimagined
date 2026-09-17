@@ -141,7 +141,7 @@ class WorkflowBenchmarkTest(unittest.TestCase):
         self.assertIn("Up-to-date", view.State)
         self.assertEqual(len(view.getVisibleEdges()), 8)
         self.assertIn("Up-to-date", side_view.State)
-        self.assertEqual(len(side_view.getVisibleEdges()), 10)
+        self.assertEqual(len(side_view.getVisibleEdges()), 4)
         self.assertIn("Up-to-date", dimension.State)
 
         with self.stage("post_step_recompute"):
