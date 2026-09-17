@@ -56,12 +56,20 @@
           <td><code>tests/src/Mod/PartDesign/App/TestModels/ModelFromV021.FCStd</code></td>
           <td>Sketch → pad → sketch → revolution → chamfer; origin-point migration and topology</td>
         </tr>
+        <tr>
+          <td>FreeCAD 1.0R39319</td>
+          <td><code>tests/src/Mod/PartDesign/App/TestModels/TwoLengthsPadWithExpression.FCStd</code></td>
+          <td>TwoLengths pad with Length expression; extrusion migration diagnostic and topology</td>
+        </tr>
       </tbody>
     </table>
     <p>
       <code>BackwardCompatibilityTest.TestV021MigrationContractLifecycle</code> runs the complete
-      open, recompute, save-copy, reopen sequence against this boundary file. Add another golden file
-      only when a distinct release or persistence hook exposes behavior this file cannot represent.
+      open, recompute, save-copy, reopen sequence against the 0.21 boundary file.
+      <code>BackwardCompatibilityTest.TestTwoLengthsPadWithExpression</code> runs the same lifecycle
+      against the TwoLengths pad golden file and requires an explicit extrusion migration diagnostic.
+      Add another golden file only when a distinct release or persistence hook exposes behavior these
+      files cannot represent.
     </p>
 
     <h2>Out of scope</h2>
