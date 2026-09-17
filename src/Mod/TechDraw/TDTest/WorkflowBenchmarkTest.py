@@ -124,11 +124,34 @@ class WorkflowBenchmarkTest(unittest.TestCase):
             page.addView(view)
             view.Source = [imported]
             view.Direction = (0.0, 0.0, 1.0)
+            side_view = self.document.addObject("TechDraw::DrawViewPart", "WorkflowSideView")
+            page.addView(side_view)
+            side_view.Source = [imported]
+            side_view.Direction = (-1.0, 0.0, 0.0)
+            self.document.recompute()
+            self.waitForView()
+
+            dimension = self.document.addObject("TechDraw::DrawViewDimension", "WorkflowLength")
+            page.addView(dimension)
+            dimension.Type = "Distance"
+            dimension.References2D = [(view, "Edge2")]
             self.document.recompute()
             self.waitForView()
 
         self.assertIn("Up-to-date", view.State)
         self.assertEqual(len(view.getVisibleEdges()), 8)
+        self.assertIn("Up-to-date", side_view.State)
+        self.assertEqual(len(side_view.getVisibleEdges()), 4)
+        self.assertIn("Up-to-date", dimension.State)
+
+        with self.stage("post_step_recompute"):
+            self.document.recompute()
+            self.waitForView()
+
+        self.assertIn("Up-to-date", view.State)
+        self.assertEqual(len(view.getVisibleEdges()), 8)
+        self.assertIn("Up-to-date", side_view.State)
+        self.assertIn("Up-to-date", dimension.State)
 
 
 if __name__ == "__main__":
