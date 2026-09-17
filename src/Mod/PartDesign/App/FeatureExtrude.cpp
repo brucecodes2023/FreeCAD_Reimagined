@@ -1035,6 +1035,15 @@ void FeatureExtrude::onDocumentRestored()
 
     // property Type no longer has TwoLengths.
     if (strcmp(Type.getValueAsString(), "?TwoLengths") == 0) {
+        Base::Console().warning(
+            "The extrusion parameters of %s are being migrated from the deprecated 'TwoLengths' "
+            "type to 'SideType=Two sides' with Length, Length2, and Reversed adjusted to "
+            "maintain the same geometry in this FreeCAD version. If the re-saved file is later "
+            "opened in an older FreeCAD release the pad result may differ due to the changed "
+            "parameter interpretation.\n",
+            getFullName()
+        );
+
         // TwoLengths predates SideType and used the original profile for both taper directions.
         UseLegacyTaperDirection.setValue(false);
         Type.setValue("Length");
@@ -1082,6 +1091,13 @@ void FeatureExtrude::onDocumentRestored()
         // A missing SideType restores as One side. This distinguishes old Midplane documents from
         // newer scripts that saved both Midplane and the corresponding SideType.
         if (strcmp(SideType.getValueAsString(), "One side") == 0) {
+            Base::Console().warning(
+                "The 'Midplane' property of the extrusion of %s is being converted to "
+                "'SideType=Symmetric' while restoring a document written by an older FreeCAD "
+                "version. If the re-saved file is later opened in that release the extrusion "
+                "result may differ.\n",
+                getFullName()
+            );
             UseLegacyTaperDirection.setValue(false);
         }
         Midplane.setValue(false);

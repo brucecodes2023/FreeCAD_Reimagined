@@ -102,6 +102,28 @@ GeometryFingerprint geometryFingerprint(const PartDesign::Chamfer& chamfer)
     return {properties.Mass(), chamfer.Shape.getBoundingBox(), counts};
 }
 
+GeometryFingerprint geometryFingerprint(const PartDesign::Pad& pad)
+{
+    const auto& shape = pad.Shape.getValue();
+    GProp_GProps properties;
+    BRepGProp::VolumeProperties(shape, properties);
+
+    std::array<int, 4> counts {};
+    const std::array<TopAbs_ShapeEnum, 4> types {
+        TopAbs_SOLID,
+        TopAbs_FACE,
+        TopAbs_EDGE,
+        TopAbs_VERTEX,
+    };
+    for (std::size_t i = 0; i < types.size(); ++i) {
+        for (TopExp_Explorer explorer(shape, types[i]); explorer.More(); explorer.Next()) {
+            ++counts[i];
+        }
+    }
+
+    return {properties.Mass(), pad.Shape.getBoundingBox(), counts};
+}
+
 void expectSameGeometry(const GeometryFingerprint& expected, const PartDesign::Chamfer& chamfer)
 {
     const auto actual = geometryFingerprint(chamfer);
@@ -113,6 +135,49 @@ void expectSameGeometry(const GeometryFingerprint& expected, const PartDesign::C
     EXPECT_NEAR(actual.bounds.MaxX, expected.bounds.MaxX, 1e-7);
     EXPECT_NEAR(actual.bounds.MaxY, expected.bounds.MaxY, 1e-7);
     EXPECT_NEAR(actual.bounds.MaxZ, expected.bounds.MaxZ, 1e-7);
+}
+
+void expectSameGeometry(const GeometryFingerprint& expected, const PartDesign::Pad& pad)
+{
+    const auto actual = geometryFingerprint(pad);
+    EXPECT_NEAR(actual.volume, expected.volume, 1e-7);
+    EXPECT_EQ(actual.topology, expected.topology);
+    EXPECT_NEAR(actual.bounds.MinX, expected.bounds.MinX, 1e-7);
+    EXPECT_NEAR(actual.bounds.MinY, expected.bounds.MinY, 1e-7);
+    EXPECT_NEAR(actual.bounds.MinZ, expected.bounds.MinZ, 1e-7);
+    EXPECT_NEAR(actual.bounds.MaxX, expected.bounds.MaxX, 1e-7);
+    EXPECT_NEAR(actual.bounds.MaxY, expected.bounds.MaxY, 1e-7);
+    EXPECT_NEAR(actual.bounds.MaxZ, expected.bounds.MaxZ, 1e-7);
+}
+
+PartDesign::Pad* expectTwoLengthsPadMigrationState(App::Document& document)
+{
+    auto* pad = dynamic_cast<PartDesign::Pad*>(document.getObject("Pad"));
+    EXPECT_NE(pad, nullptr);
+    if (!pad) {
+        return nullptr;
+    }
+
+    EXPECT_FALSE(pad->UseLegacyTaperDirection.getValue());
+    EXPECT_DOUBLE_EQ(pad->Length.getValue(), 5.0);
+    EXPECT_DOUBLE_EQ(pad->Length2.getValue(), 10.0);
+
+    App::ObjectIdentifier lengthPath(pad->Length);
+    App::ObjectIdentifier length2Path(pad->Length2);
+    auto exprLength = pad->getExpression(lengthPath);
+    auto exprLength2 = pad->getExpression(length2Path);
+    EXPECT_FALSE(exprLength.expression);
+    EXPECT_TRUE(exprLength2.expression);
+
+    return pad;
+}
+
+bool hasTwoLengthsExtrudeMigrationWarning(const std::vector<std::string>& warnings)
+{
+    return std::ranges::any_of(warnings, [](const std::string& warning) {
+        return warning.find("TwoLengths") != std::string::npos
+            && warning.find("SideType=Two sides") != std::string::npos;
+    });
 }
 
 PartDesign::Chamfer* expectParametricHistory(App::Document& document)
@@ -254,29 +319,48 @@ TEST_F(BackwardCompatibilityTest, TestTwoLengthsPadWithExpression)
     // TwoLengths pad where Length has an expression (=10mm) and Length2 is a plain value (5mm). The
     // migration must swap both the values and the expressions so the geometry is preserved.
 
-    auto doc = App::GetApplication().openDocument(
+    MigrationLogger logger;
+    ScopedConsoleObserver observer(logger);
+    auto* doc = App::GetApplication().openDocument(
         std::string(getTestPath() + "TwoLengthsPadWithExpression.FCStd").c_str()
     );
     setDocument(doc);
 
-    auto pad = dynamic_cast<PartDesign::Pad*>(doc->getObject("Pad"));
+    ASSERT_NE(doc, nullptr);
+    SCOPED_TRACE(logger.diagnostics);
+    EXPECT_FALSE(doc->testStatus(App::Document::PartialRestore));
+    EXPECT_TRUE(hasTwoLengthsExtrudeMigrationWarning(logger.warnings));
+
+    auto* pad = expectTwoLengthsPadMigrationState(*doc);
     ASSERT_NE(pad, nullptr);
-
-    EXPECT_FALSE(pad->UseLegacyTaperDirection.getValue());
-    EXPECT_DOUBLE_EQ(pad->Length.getValue(), 5.0);
-    EXPECT_DOUBLE_EQ(pad->Length2.getValue(), 10.0);
-
-    App::ObjectIdentifier lengthPath(pad->Length);
-    App::ObjectIdentifier length2Path(pad->Length2);
-    auto exprLength = pad->getExpression(lengthPath);
-    auto exprLength2 = pad->getExpression(length2Path);
-    EXPECT_FALSE(exprLength.expression);
-    EXPECT_TRUE(exprLength2.expression);
+    const auto originalGeometry = geometryFingerprint(*pad);
+    EXPECT_GT(originalGeometry.volume, 0.0);
 
     doc->recompute();
+    ASSERT_FALSE(pad->isError());
+    expectSameGeometry(originalGeometry, *pad);
     auto bbox = pad->Shape.getBoundingBox();
     EXPECT_NEAR(bbox.MaxZ, 10.0, 0.01);
     EXPECT_NEAR(bbox.MinZ, -5.0, 0.01);
+
+    const std::string originalPath = doc->getFileName();
+    const auto& copyPath = setTemporaryFile(
+        App::Application::getTempFileName() + std::string(".FCStd")
+    );
+    ASSERT_TRUE(doc->saveCopy(copyPath.c_str()));
+    EXPECT_EQ(std::string(doc->getFileName()), originalPath);
+
+    App::GetApplication().closeDocument(doc->getName());
+    doc = App::GetApplication().openDocument(copyPath.c_str());
+    setDocument(doc);
+    ASSERT_NE(doc, nullptr);
+    EXPECT_FALSE(doc->testStatus(App::Document::PartialRestore));
+    pad = expectTwoLengthsPadMigrationState(*doc);
+    ASSERT_NE(pad, nullptr);
+    expectSameGeometry(originalGeometry, *pad);
+    doc->recompute();
+    ASSERT_FALSE(pad->isError());
+    expectSameGeometry(originalGeometry, *pad);
 }
 
 TEST_F(BackwardCompatibilityTest, TestTwoLengthsPadCyclicExpression)
