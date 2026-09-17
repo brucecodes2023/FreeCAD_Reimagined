@@ -24,9 +24,11 @@
 
 
 #include <sstream>
+#include <limits>
 #include <Bnd_Box.hxx>
 #include <BRep_Builder.hxx>
 #include <BRepAdaptor_Curve.hxx>
+#include <BRepAdaptor_Surface.hxx>
 #include <TopoDS_Compound.hxx>
 #include <Mod/Part/App/FCBRepAlgoAPI_Fuse.h>
 #include <Mod/Part/App/FCBRepAlgoAPI_Common.h>
@@ -1564,6 +1566,46 @@ void Feature::onChanged(const App::Property* prop)
     GeoFeature::onChanged(prop);
 }
 
+static gp_Dir faceNormalAtCenter(const TopoDS_Shape& faceShape)
+{
+    BRepAdaptor_Surface surf(TopoDS::Face(faceShape));
+    const Standard_Real u = 0.5 * (surf.FirstUParameter() + surf.LastUParameter());
+    const Standard_Real v = 0.5 * (surf.FirstVParameter() + surf.LastVParameter());
+    gp_Pnt point;
+    gp_Vec d1u;
+    gp_Vec d1v;
+    surf.D1(u, v, point, d1u, d1v);
+    gp_Vec normal = d1u.Crossed(d1v);
+    if (normal.SquareMagnitude() < Precision::SquareConfusion()) {
+        return gp_Dir(0, 0, 1);
+    }
+    return gp_Dir(normal);
+}
+
+static std::vector<std::string> filterFaceCandidatesByNormal(
+    const TopoShape& shape,
+    const TopoShape& referenceFace,
+    std::vector<std::string> names
+)
+{
+    if (referenceFace.shapeType(true) != TopAbs_FACE || names.empty()) {
+        return names;
+    }
+    const gp_Dir referenceNormal = faceNormalAtCenter(referenceFace.getShape());
+    std::vector<std::string> filtered;
+    filtered.reserve(names.size());
+    for (const auto& name : names) {
+        const TopoShape candidate = shape.getSubShape(name.c_str());
+        if (candidate.shapeType(true) != TopAbs_FACE) {
+            continue;
+        }
+        if (faceNormalAtCenter(candidate.getShape()).Dot(referenceNormal) > 0.9) {
+            filtered.push_back(name);
+        }
+    }
+    return filtered;
+}
+
 /// Find the nearest match for an element that has "drifted" from its expected location. Still has
 /// a tolerance cap internally to prevent it from going totally off the rails: the element really
 /// might just be gone.
@@ -1586,6 +1628,7 @@ static std::vector<std::string> searchDriftedElement(
     while (tolerance <= absoluteToleranceCap) {
         std::vector<std::string> names;
         shape.findSubShapesWithSharedVertex(element, &names, Data::SearchOptions(), tolerance);
+        names = filterFaceCandidatesByNormal(shape, element, std::move(names));
         if (names.size() == 1) {
             return names;
         }
@@ -1598,6 +1641,7 @@ static std::vector<std::string> searchDriftedElement(
                 Data::SearchOption::CheckGeometry,
                 tolerance
             );
+            names = filterFaceCandidatesByNormal(shape, element, std::move(names));
             if (names.size() == 1) {
                 return names;
             }
@@ -1605,6 +1649,30 @@ static std::vector<std::string> searchDriftedElement(
         }
         constexpr double toleranceStep = 2.0;  // Double each time
         tolerance *= toleranceStep;
+    }
+    if (element.shapeType(true) == TopAbs_FACE) {
+        const gp_Dir referenceNormal = faceNormalAtCenter(element.getShape());
+        GProp_GProps referenceProps;
+        BRepGProp::SurfaceProperties(element.getShape(), referenceProps);
+        const gp_Pnt referenceCenter = referenceProps.CentreOfMass();
+        std::string bestName;
+        double bestDistance = std::numeric_limits<double>::max();
+        for (size_t idx = 1; idx <= shape.countSubShapes(TopAbs_FACE); ++idx) {
+            const TopoShape candidate = shape.getSubTopoShape(TopAbs_FACE, static_cast<int>(idx));
+            if (faceNormalAtCenter(candidate.getShape()).Dot(referenceNormal) <= 0.9) {
+                continue;
+            }
+            GProp_GProps candidateProps;
+            BRepGProp::SurfaceProperties(candidate.getShape(), candidateProps);
+            const double distance = referenceCenter.Distance(candidateProps.CentreOfMass());
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                bestName = std::string("Face") + std::to_string(idx);
+            }
+        }
+        if (!bestName.empty()) {
+            return {bestName};
+        }
     }
     return {};
 }
@@ -1640,6 +1708,8 @@ const std::vector<std::string>& Feature::searchElementCache(
         else {
             propShape->getShape()
                 .findSubShapesWithSharedVertex(it->second.shape, &it->second.names, options, tol, atol);
+            it->second.names =
+                filterFaceCandidatesByNormal(propShape->getShape(), it->second.shape, std::move(it->second.names));
         }
         if (!it->second.names.empty()) {
             it->second.searched = true;
