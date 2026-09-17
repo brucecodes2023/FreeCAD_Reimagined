@@ -973,15 +973,40 @@ void Revolved::onDocumentRestored()
     Base::StateLocker migrating(migratingDeprecatedProperties);
 
     if (isLegacyTwoAngles(Type.getValueAsString())) {
+        Base::Console().warning(
+            "The revolution parameters of %s are being migrated from the deprecated 'TwoAngles' "
+            "type to 'SideType=Two sides' with Type and Type2 set to 'Angle' to "
+            "maintain the same geometry in this FreeCAD version. If the re-saved file is later "
+            "opened in an older FreeCAD release the revolution result may differ due to the changed "
+            "parameter interpretation.\n",
+            getFullName().c_str()
+        );
         Type.setValue("Angle");
         Type2.setValue("Angle");
         SideType.setValue("Two sides");
     }
     else {
         if (isLegacyTwoAngles(Type2.getValueAsString())) {
+            Base::Console().warning(
+                "The 'Type2' property of the revolution of %s is being migrated from the "
+                "deprecated 'TwoAngles' type to 'Angle' while restoring a document written by "
+                "an older FreeCAD version.\n",
+                getFullName().c_str()
+            );
             Type2.setValue("Angle");
         }
         if (Midplane.getValue()) {
+            // A missing SideType restores as One side. That is the old Midplane document; current
+            // files that already saved SideType=Symmetric with Midplane still true stay quiet.
+            if (std::strcmp(SideType.getValueAsString(), "One side") == 0) {
+                Base::Console().warning(
+                    "The 'Midplane' property of the revolution of %s is being converted to "
+                    "'SideType=Symmetric' while restoring a document written by an older FreeCAD "
+                    "version. If the re-saved file is later opened in that release the revolution "
+                    "result may differ.\n",
+                    getFullName().c_str()
+                );
+            }
             Midplane.setValue(false);
             SideType.setValue("Symmetric");
         }

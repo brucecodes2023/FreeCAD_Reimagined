@@ -2,8 +2,13 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <numbers>
+#include <ranges>
+#include <string>
+#include <vector>
 
 #include <BRepGProp.hxx>
 #include <GProp_GProps.hxx>
@@ -14,6 +19,7 @@
 #include <App/Application.h>
 #include <App/Document.h>
 #include <Base/BoundBox.h>
+#include <Base/Console.h>
 #include <Mod/Part/App/Geometry.h>
 #include <Mod/PartDesign/App/Body.h>
 #include <Mod/PartDesign/App/FeatureGroove.h>
@@ -60,6 +66,55 @@ double volumeOf(const TopoDS_Shape& shape)
     return std::abs(properties.Mass());
 }
 
+class RestoreLogger final: public Base::ILogger
+{
+public:
+    void sendLog(
+        const std::string&,
+        const std::string& message,
+        Base::LogStyle level,
+        Base::IntendedRecipient,
+        Base::ContentType
+    ) override
+    {
+        if (level == Base::LogStyle::Warning) {
+            warnings.push_back(message);
+        }
+    }
+
+    const char* name() override
+    {
+        return "RestoreLogger";
+    }
+
+    std::vector<std::string> warnings;
+};
+
+class ScopedConsoleObserver
+{
+public:
+    explicit ScopedConsoleObserver(Base::ILogger& logger)
+        : logger(logger)
+    {
+        Base::Console().attachObserver(&logger);
+    }
+
+    ~ScopedConsoleObserver()
+    {
+        Base::Console().detachObserver(&logger);
+    }
+
+private:
+    Base::ILogger& logger;
+};
+
+bool warningContains(const std::vector<std::string>& warnings, const char* needle)
+{
+    return std::ranges::any_of(warnings, [&](const std::string& warning) {
+        return warning.find(needle) != std::string::npos;
+    });
+}
+
 }  // namespace
 
 class RevolutionTest: public ::testing::Test
@@ -80,7 +135,13 @@ protected:
 
     void TearDown() override
     {
-        App::GetApplication().closeDocument(_doc->getName());
+        if (_doc) {
+            App::GetApplication().closeDocument(_doc->getName());
+            _doc = nullptr;
+        }
+        if (!_temporaryFile.empty()) {
+            std::remove(_temporaryFile.c_str());
+        }
     }
 
     App::Document* getDocument() const
@@ -140,10 +201,25 @@ protected:
         return groove;
     }
 
+    App::Document* reopenCopyWithLogger(RestoreLogger& logger)
+    {
+        _temporaryFile = App::Application::getTempFileName() + std::string(".FCStd");
+        EXPECT_TRUE(_doc->saveCopy(_temporaryFile.c_str()));
+        App::GetApplication().closeDocument(_doc->getName());
+        _doc = nullptr;
+        _body = nullptr;
+        _profile = nullptr;
+
+        ScopedConsoleObserver observer(logger);
+        _doc = App::GetApplication().openDocument(_temporaryFile.c_str());
+        return _doc;
+    }
+
 private:
     App::Document* _doc = nullptr;
     PartDesign::Body* _body = nullptr;
     Sketcher::SketchObject* _profile = nullptr;
+    std::string _temporaryFile;
 };
 
 // Two sides that do not overlap: 90 degrees each way is one 180 degree sweep.
@@ -304,6 +380,58 @@ TEST_F(RevolutionTest, SecondSideUpToFaceWithoutTargetIsAnError)
     getDocument()->recompute();
 
     EXPECT_TRUE(revolution->isError());
+}
+
+TEST_F(RevolutionTest, TwoAnglesRestoreEmitsDiagnostic)
+{
+    auto* revolution = addRevolution();
+    revolution->Type.setValue("?TwoAngles");
+    revolution->Angle.setValue(90.0);
+    revolution->Angle2.setValue(90.0);
+    getDocument()->recompute();
+    ASSERT_FALSE(revolution->isError()) << revolution->getStatusString();
+    const double originalVolume = volumeOf(revolution->Shape.getValue());
+
+    RestoreLogger logger;
+    auto* restored = reopenCopyWithLogger(logger);
+    ASSERT_NE(restored, nullptr);
+    EXPECT_FALSE(restored->testStatus(App::Document::PartialRestore));
+    EXPECT_TRUE(warningContains(logger.warnings, "TwoAngles"));
+    EXPECT_TRUE(warningContains(logger.warnings, "SideType=Two sides"));
+
+    revolution = dynamic_cast<PartDesign::Revolution*>(restored->getObject("Revolution"));
+    ASSERT_NE(revolution, nullptr);
+    EXPECT_STREQ(revolution->Type.getValueAsString(), "Angle");
+    EXPECT_STREQ(revolution->Type2.getValueAsString(), "Angle");
+    EXPECT_STREQ(revolution->SideType.getValueAsString(), "Two sides");
+
+    restored->recompute();
+    ASSERT_FALSE(revolution->isError()) << revolution->getStatusString();
+    EXPECT_NEAR(volumeOf(revolution->Shape.getValue()), originalVolume, volumeTolerance);
+}
+
+TEST_F(RevolutionTest, MidplaneRestoreEmitsDiagnostic)
+{
+    auto* revolution = addRevolution();
+    revolution->Angle.setValue(180.0);
+    revolution->setStatus(App::ObjectStatus::Restore, true);
+    revolution->Midplane.setValue(true);
+    revolution->setStatus(App::ObjectStatus::Restore, false);
+    ASSERT_STREQ(revolution->SideType.getValueAsString(), "One side");
+    getDocument()->recompute();
+    ASSERT_FALSE(revolution->isError()) << revolution->getStatusString();
+
+    RestoreLogger logger;
+    auto* restored = reopenCopyWithLogger(logger);
+    ASSERT_NE(restored, nullptr);
+    EXPECT_FALSE(restored->testStatus(App::Document::PartialRestore));
+    EXPECT_TRUE(warningContains(logger.warnings, "Midplane"));
+    EXPECT_TRUE(warningContains(logger.warnings, "SideType=Symmetric"));
+
+    revolution = dynamic_cast<PartDesign::Revolution*>(restored->getObject("Revolution"));
+    ASSERT_NE(revolution, nullptr);
+    EXPECT_FALSE(revolution->Midplane.getValue());
+    EXPECT_STREQ(revolution->SideType.getValueAsString(), "Symmetric");
 }
 
 // NOLINTEND(readability-magic-numbers,cppcoreguidelines-avoid-magic-numbers)
