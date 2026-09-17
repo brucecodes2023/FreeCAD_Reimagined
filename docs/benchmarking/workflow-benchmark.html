@@ -10,7 +10,8 @@
     <h1>Workflow benchmark and kernel gates</h1>
     <p>
       <code>TDTest.WorkflowBenchmarkTest</code> exercises one workflow:
-      sketch, pad and pocket, parameter edits, STEP round-trip, and TechDraw projection.
+      sketch, pad and pocket, parameter edits, STEP round-trip, TechDraw projection
+      (top and side views plus a length dimension), and a follow-up recompute.
       Normal test runs enforce deterministic correctness only.
     </p>
 
@@ -36,7 +37,14 @@ FREECAD_WORKFLOW_BENCHMARK=1 FreeCAD -t TDTest.WorkflowBenchmarkTest</code></pre
     <ol>
       <li>The edited model remains valid and has the expected volume.</li>
       <li>The STEP result passes the kernel comparator at the recorded tolerance.</li>
-      <li>The TechDraw view reaches an up-to-date state with the expected visible edges.</li>
+      <li>
+        TechDraw top and side views reach an up-to-date state with the expected visible
+        edge counts, and a length dimension on the drawing is up-to-date.
+      </li>
+      <li>
+        A second full document recompute after the drawing is built leaves views and the
+        dimension up-to-date (deterministic after the STEP import).
+      </li>
       <li>Existing focused and module test suites remain green.</li>
       <li>
         Before an experiment starts, its owner records timing and memory budgets for the
