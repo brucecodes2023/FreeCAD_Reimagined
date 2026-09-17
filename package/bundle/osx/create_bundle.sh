@@ -154,7 +154,9 @@ else
 
     # ponytail: ad-hoc conda bundles fail --strict; launcher smoke is the CI gate (before dmgbuild)
     echo "Running FreeCAD bundle launcher smoke test..."
-    if ! FreeCAD.app/Contents/MacOS/FreeCAD --safe-mode --version; then
+    # ponytail: headless CI hangs without offscreen; 120s cap avoids 6h runner cancel
+    export QT_QPA_PLATFORM=offscreen
+    if ! perl -e 'alarm shift; exec @ARGV' 120 FreeCAD.app/Contents/MacOS/FreeCAD --safe-mode --version; then
         echo "FreeCAD bundle launcher smoke test failed; the signed application cannot start."
         exit 1
     fi
