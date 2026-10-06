@@ -2426,10 +2426,6 @@ class TestTopologicalNamingProblem(unittest.TestCase):
             Part.LineSegment(App.Vector(40, 5, 0), App.Vector(40, 15, 0)),
             False,
         )
-        doc.SketchRef.addGeometry(
-            Part.LineSegment(App.Vector(35, 5, 0), App.Vector(35, 15, 0)),
-            False,
-        )
         doc.recompute()
         doc.Body.newObject("Sketcher::SketchObject", "Sketch")
         doc.Sketch.AttachmentSupport = (doc.XY_Plane, [""])
@@ -2525,12 +2521,17 @@ class TestTopologicalNamingProblem(unittest.TestCase):
         doc.Pad.Visibility = False
         doc.Sketch001.Visibility = False
 
+        # Tie the pad profile's right edge to the external edge, then move the external
+        # edge so the pad regenerates with a narrower footprint.
         doc.Sketch.addExternal("SketchRef", "Edge1")
-        doc.recompute()
-        doc.Sketch.delExternal(0)
-        doc.Sketch.addExternal("SketchRef", "Edge2")
+        doc.Sketch.addConstraint(Sketcher.Constraint("PointOnObject", 1, 1, -3))
         doc.recompute()
         self.assertAlmostEqual(doc.Pad.Shape.Volume, 8000)
+        doc.SketchRef.moveGeometry(0, 0, App.Vector(-5, 0, 0), 1)
+        doc.recompute()
+        self.assertTrue(doc.Pad.isValid())
+        self.assertAlmostEqual(doc.Pad.Shape.Volume, 7000)
+        self.assertTrue(doc.Pad001.isValid())
         self.assertTrue(doc.Sketch001.isValid())
         self.assertTrue(doc.Sketch001.AttachmentOffset.Matrix == App.Matrix())
         matrix1 = App.Matrix()
