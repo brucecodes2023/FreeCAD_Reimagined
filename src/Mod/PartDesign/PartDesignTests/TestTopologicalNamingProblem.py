@@ -2621,12 +2621,17 @@ class TestTopologicalNamingProblem(unittest.TestCase):
         doc.recompute()
         doc.Revolution.Visibility = False
         doc.Sketch001.Visibility = False
+        self.assertAlmostEqual(doc.Revolution.Shape.Volume, math.pi * 40**2 * 20)
         expectedPlacement = doc.Sketch001.Placement.Matrix
-        doc.Sketch.moveGeometry(3, 0, App.Vector(-5, 0, 0), 1)
-        doc.Sketch.moveGeometry(0, 0, App.Vector(0.000000, -5, 0), 1)
-        doc.Sketch.moveGeometry(1, 0, App.Vector(-5, 0.000000, 0), 1)
-        doc.Sketch.moveGeometry(2, 0, App.Vector(-0, -5, 0), 1)
+        # Move the profile off the revolution axis so the solid cylinder becomes a tube.
+        # Moving it across the axis would make the Revolution fail and leave Sketch001
+        # with a stale placement, which proves nothing.
+        doc.Sketch.moveGeometry(1, 0, App.Vector(5, 0, 0), 1)
+        doc.Sketch.moveGeometry(3, 0, App.Vector(5, 0, 0), 1)
         doc.recompute()
+        self.assertTrue(doc.Revolution.isValid())
+        self.assertAlmostEqual(doc.Revolution.Shape.Volume, math.pi * (45**2 - 5**2) * 20)
+        self.assertTrue(doc.Pad001.isValid())
         self.assertTrue(doc.Sketch001.isValid())
         self.assertTrue(doc.Sketch001.AttachmentOffset.Matrix == App.Matrix())
         self.assertTrue(doc.Sketch001.Placement.Matrix == expectedPlacement)
